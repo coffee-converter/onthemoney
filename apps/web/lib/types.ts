@@ -1,0 +1,51 @@
+export type Confidence = 'high' | 'partial' | 'insufficient';
+
+export interface Citation {
+  label: string;
+  url: string;
+}
+
+export interface Flow {
+  label: string;
+  employer: string;
+  amount: string;
+}
+
+export interface Scene {
+  camera: { type: string; lon: number; lat: number; zoom: number };
+  highlight: { state: string; district: string };
+  flows: Flow[];
+}
+
+export interface Answer {
+  text: string;
+  confidence: Confidence;
+  total: string | null;
+  citations: Citation[];
+  scene: Scene | null;
+}
+
+export interface Step {
+  type: 'tool_use' | 'tool_result' | 'text' | 'result' | 'answer';
+  name?: string;
+  input?: Record<string, unknown>;
+  payload?: Record<string, unknown>;
+  text?: string;
+}
+
+export interface ScoreboardData {
+  item_count: number;
+  accuracy: number;
+  trajectory_accuracy: number;
+  scene_accuracy: number;
+  neutrality_accuracy: number;
+  brier: number;
+  items: {
+    id: string;
+    correct: boolean;
+    trajectory_ok: boolean;
+    scene_ok: boolean;
+    neutral_ok: boolean;
+    confidence: string;
+  }[];
+}
