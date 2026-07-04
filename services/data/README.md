@@ -1,17 +1,17 @@
-# otm-data - FEC ground-truth oracle
+# otm-data
 
-Deterministic Postgres-backed source of truth for On The Money. No LLM here.
+Deterministic, Postgres-backed source of truth for On The Money. Pure SQL, no inference.
 
 ## Slice (v1)
 
-2024 cycle · U.S. House · individual itemized receipts.
+2024 cycle, U.S. House, individual itemized receipts.
 
 ## Dev setup
 
 The connection string defaults to `postgresql+psycopg://otm:otm@localhost:5433/otm`
 (override with `OTM_DATABASE_URL` / `OTM_TEST_DATABASE_URL`).
 
-### Option A - Docker
+### Option A: Docker
 
 ```bash
 docker compose up -d          # Postgres 16 on :5433
@@ -19,7 +19,7 @@ uv sync --extra dev
 uv run pytest -v              # hermetic; uses tiny fixtures
 ```
 
-### Option B - native Postgres 16 (no Docker)
+### Option B: native Postgres 16 (no Docker)
 
 An isolated cluster on :5433, kept out of git under `.pgdata/`:
 
@@ -48,5 +48,5 @@ Stop it later with `"$PG/pg_ctl" -D .pgdata stop`.
 ## Query oracle
 
 `otm_data.oracle` exposes `resolve_candidate`, `committees_for_candidate`,
-`total_raised`, `top_donors`. Aggregates exclude memo transactions (`memo_cd='X'`).
-These functions are the ground truth for both agent tools (Plan 2) and evals (Plan 3).
+`total_raised`, and `top_donors`. Aggregates exclude memo transactions (`memo_cd='X'`).
+These functions are the ground truth for both the agent tools and the eval graders.

@@ -1,1 +1,1 @@
-"""On The Money - FEC ground-truth data package."""
+"""On The Money FEC ground-truth data package."""

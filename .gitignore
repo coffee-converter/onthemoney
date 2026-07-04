@@ -24,6 +24,9 @@ services/data/_fec/
 .pgdata/
 services/data/.pgdata/
 
+# Planning and design docs live in a separate private workspace, not this repo
+docs/
+
 # Misc
 .DS_Store
 .cache/
