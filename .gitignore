@@ -20,6 +20,10 @@ build/
 _fec/
 services/data/_fec/
 
+# Local Postgres cluster (native dev DB when Docker is unavailable)
+.pgdata/
+services/data/.pgdata/
+
 # Misc
 .DS_Store
 .cache/
