@@ -18,10 +18,11 @@ Early build. The v1 slice covers the 2024 cycle, U.S. House races, and individua
 
 ## Architecture
 
-- `services/data`: deterministic FEC ground-truth store (Postgres).
-- `services/agent` (coming): Python agent and tools.
-- `apps/api` (coming): NestJS API boundary.
-- `apps/web` (coming): Next.js and MapLibre front end.
+- `services/data`: deterministic FEC ground-truth store (Postgres). No inference.
+- `services/agent`: Python agent. A shared tool registry drives a standalone MCP server, a pure-Python Anthropic tool-use runtime, a LangGraph verify-and-calibrate step, and a FastAPI service with streaming.
+- `services/eval`: golden dataset, deterministic graders, a CI gate that fails on regression, and the scoreboard.
+- `apps/api`: NestJS backend-for-frontend. Typed contracts, stream relay, scoreboard endpoint.
+- `apps/web`: Next.js and MapLibre. The steerable atlas, the streamed step trace, calibrated confidence, and citations.
 
 ## Non-partisan by design
 
