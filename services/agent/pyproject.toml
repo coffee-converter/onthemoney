@@ -1,0 +1,23 @@
+[project]
+name = "otm-agent"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "otm-data",
+    "claude-agent-sdk>=0.2",
+    "langgraph>=0.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+otm-data = { path = "../data", editable = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
