@@ -59,6 +59,8 @@ def run_query(client, prompt: str, engine: Engine, *, model: str | None = None,
                 assistant_content.append({"type": "tool_use", "id": block.id,
                                           "name": block.name, "input": block.input})
                 payload = get_spec(block.name).handler(engine, block.input)
+                trace.append({"type": "tool_result", "name": block.name,
+                              "payload": payload})
                 tool_results.append({"type": "tool_result", "tool_use_id": block.id,
                                      "content": json.dumps(payload)})
 

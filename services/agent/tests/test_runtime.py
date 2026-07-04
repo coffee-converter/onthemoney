@@ -53,6 +53,11 @@ def test_run_query_threads_real_oracle_data(seeded_engine):
     assert names == ["resolve_entity", "emit_scene"]
     assert "500.00" in result.final_text
 
+    results = [s for s in result.trace if s["type"] == "tool_result"]
+    assert any(r["name"] == "resolve_entity"
+               and r["payload"].get("candidate", {}).get("cand_id") == "H2AZ06099"
+               for r in results)
+
     # The second model call must have received the resolve_entity tool_result
     # carrying real oracle data, proving the handler dispatched against Postgres.
     second_call_messages = client.messages.calls[1]["messages"]
