@@ -25,18 +25,18 @@ def anthropic_tools() -> list[dict]:
              "input_schema": s.input_schema} for s in tool_specs()]
 
 
-def run_query(client, prompt: str, engine: Engine, *, model: str | None = None,
-              max_turns: int = 6) -> AgentResult:
-    """Pure-Python Anthropic Messages API tool-use loop.
+def stream_query(client, prompt: str, engine: Engine, *, model: str | None = None,
+                 max_turns: int = 6):
+    """Pure-Python Anthropic Messages API tool-use loop, yielding trace steps.
 
     `client` is any object exposing `messages.create(...)`; inject a fake in
-    tests, or `anthropic.Anthropic()` in production. This is the deployed and
-    evaluated request path (no Node, no CLI).
+    tests, or `anthropic.Anthropic()` in production. Yields step dicts of type
+    `tool_use`, `tool_result`, `text`, and a final `result`. This is the
+    deployed and evaluated request path (no Node, no CLI).
     """
     model = model or get_settings().model
     tools = anthropic_tools()
     messages: list[dict] = [{"role": "user", "content": prompt}]
-    trace: list[dict] = []
     final_text = ""
 
     for _ in range(max_turns):
@@ -51,16 +51,14 @@ def run_query(client, prompt: str, engine: Engine, *, model: str | None = None,
         for block in resp.content:
             if block.type == "text":
                 turn_text += block.text
-                trace.append({"type": "text", "text": block.text})
+                yield {"type": "text", "text": block.text}
                 assistant_content.append({"type": "text", "text": block.text})
             elif block.type == "tool_use":
-                trace.append({"type": "tool_use", "name": block.name,
-                              "input": block.input})
+                yield {"type": "tool_use", "name": block.name, "input": block.input}
                 assistant_content.append({"type": "tool_use", "id": block.id,
                                           "name": block.name, "input": block.input})
                 payload = get_spec(block.name).handler(engine, block.input)
-                trace.append({"type": "tool_result", "name": block.name,
-                              "payload": payload})
+                yield {"type": "tool_result", "name": block.name, "payload": payload}
                 tool_results.append({"type": "tool_result", "tool_use_id": block.id,
                                      "content": json.dumps(payload)})
 
@@ -73,5 +71,17 @@ def run_query(client, prompt: str, engine: Engine, *, model: str | None = None,
         final_text = turn_text
         break
 
-    trace.append({"type": "result", "text": final_text})
+    yield {"type": "result", "text": final_text}
+
+
+def run_query(client, prompt: str, engine: Engine, *, model: str | None = None,
+              max_turns: int = 6) -> AgentResult:
+    """Collect `stream_query` into a full `AgentResult`."""
+    trace: list[dict] = []
+    final_text = ""
+    for step in stream_query(client, prompt, engine, model=model,
+                             max_turns=max_turns):
+        trace.append(step)
+        if step["type"] == "result":
+            final_text = step["text"]
     return AgentResult(trace=trace, final_text=final_text)

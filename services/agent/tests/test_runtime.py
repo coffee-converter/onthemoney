@@ -1,7 +1,7 @@
 import json
 import os
 import pytest
-from otm_agent.runtime import run_query, anthropic_tools, AgentResult
+from otm_agent.runtime import run_query, stream_query, anthropic_tools, AgentResult
 
 
 class _Blk:
@@ -67,6 +67,21 @@ def test_run_query_threads_real_oracle_data(seeded_engine):
                           if isinstance(b, dict) and b.get("type") == "tool_result"]
     joined = " ".join(b["content"] for b in tool_result_blocks)
     assert "H2AZ06099" in joined
+
+
+def test_stream_query_yields_steps_incrementally(seeded_engine):
+    script = [
+        _Resp("tool_use", [_Blk(type="tool_use", id="t1", name="resolve_entity",
+                                input={"state": "AZ", "district": "06"})]),
+        _Resp("end_turn", [_Blk(type="text", text="Reported 500.00 for 2024.")]),
+    ]
+    steps = list(stream_query(_FakeClient(script),
+                              "Who funds AZ-06?", seeded_engine))
+    types = [s["type"] for s in steps]
+    assert types[0] == "tool_use"
+    assert types[1] == "tool_result"
+    assert types[-1] == "result"
+    assert steps[-1]["text"] == "Reported 500.00 for 2024."
 
 
 @pytest.mark.skipif(not os.getenv("ANTHROPIC_API_KEY"),
