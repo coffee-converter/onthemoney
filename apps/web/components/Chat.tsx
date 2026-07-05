@@ -16,11 +16,42 @@ function money(x: string | null | undefined): string | null {
   return `$${Math.round(n).toLocaleString()}`;
 }
 
-function stepLabel(step: Step): string {
-  if (step.type === 'tool_use') return `Calling ${step.name}`;
-  if (step.type === 'tool_result') return `${step.name} returned`;
-  if (step.type === 'text') return step.text ?? '';
-  return step.type;
+// Human-facing narration for each tool, instead of leaking raw function names.
+const FRIENDLY: Record<string, { active: string; done: string }> = {
+  resolve_entity: { active: 'Identifying the candidate', done: 'Candidate identified' },
+  resolve_candidate: { active: 'Identifying the candidate', done: 'Candidate identified' },
+  funding_summary: { active: 'Pulling FEC funding totals', done: 'Funding totals retrieved' },
+  top_donors: { active: 'Ranking the largest donors', done: 'Top donors ranked' },
+  emit_scene: { active: 'Mapping the money by state', done: 'Map rendered' },
+};
+
+function friendly(name: string, done: boolean): string {
+  const f = FRIENDLY[name];
+  if (f) return done ? f.done : f.active;
+  const h = name.replace(/_/g, ' ');
+  return done ? `${h} complete` : h;
+}
+
+type Activity = { name: string; done: boolean };
+
+// Collapse the tool_use/tool_result stream into one activity per tool call,
+// flipping to done when its result arrives.
+function activities(steps: Step[]): Activity[] {
+  const acts: Activity[] = [];
+  for (const s of steps) {
+    const name = s.name;
+    if (!name) continue;
+    if (s.type === 'tool_use') acts.push({ name, done: false });
+    else if (s.type === 'tool_result') {
+      for (let i = acts.length - 1; i >= 0; i--) {
+        if (acts[i].name === name && !acts[i].done) {
+          acts[i].done = true;
+          break;
+        }
+      }
+    }
+  }
+  return acts;
 }
 
 export function Chat({ onScene }: { onScene: (s: Scene) => void }) {
@@ -71,13 +102,12 @@ export function Chat({ onScene }: { onScene: (s: Scene) => void }) {
       </form>
 
       <ol className="trace">
-        {steps
-          .filter((s) => s.type === 'tool_use' || s.type === 'tool_result')
-          .map((s, i) => (
-            <li key={i} className={`trace-${s.type}`}>
-              {stepLabel(s)}
-            </li>
-          ))}
+        {activities(steps).map((a, i) => (
+          <li key={i} className={a.done ? 'trace-done' : 'trace-active'}>
+            <span className="trace-icon">{a.done ? '✓' : '○'}</span>
+            {friendly(a.name, a.done)}
+          </li>
+        ))}
       </ol>
 
       {answer && (

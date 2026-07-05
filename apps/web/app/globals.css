@@ -159,12 +159,28 @@ button:disabled {
 }
 
 .trace li {
-  padding: 0.2rem 0;
-  border-bottom: 1px dashed var(--line);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
 }
 
-.trace-tool_use {
-  color: var(--accent);
+.trace-icon {
+  flex: none;
+  width: 1rem;
+  text-align: center;
+}
+
+.trace-active {
+  color: var(--muted);
+}
+
+.trace-done {
+  color: #e6edf3;
+}
+
+.trace-done .trace-icon {
+  color: #3ddc84;
 }
 
 .answer {
