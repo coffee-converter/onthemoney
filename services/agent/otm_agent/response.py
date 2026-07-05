@@ -34,6 +34,16 @@ def build_answer_from_trace(engine: Engine, trace: list[dict],
             if step["name"] == "emit_scene" and "highlight" in payload:
                 scene = payload
 
+    # An answer assembled from deterministic analytical tools is grounded by
+    # construction, even when there is no single district total to verify.
+    _GROUNDED = {"state_field", "industry_breakdown", "top_employers",
+                 "render_map", "highlight_district"}
+    grounded = any(
+        step["type"] == "tool_result" and step["name"] in _GROUNDED
+        and not step["payload"].get("insufficient", False)
+        for step in trace
+    )
+
     # Prefer the exact figure the tool returned over re-parsing the model's prose
     # (the model reformats with $ and commas, which is lossy to compare).
     claimed = total_from_tool if total_from_tool is not None else parse_claimed_total(final_text)
@@ -42,6 +52,9 @@ def build_answer_from_trace(engine: Engine, trace: list[dict],
                             claimed_total=claimed)
         confidence = verdict.confidence.value
         total = claimed if verdict.verified else None
+    elif grounded:
+        confidence = "high"
+        total = None
     else:
         confidence = "insufficient"
         total = None

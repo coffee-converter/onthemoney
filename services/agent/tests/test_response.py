@@ -76,3 +76,18 @@ def test_build_answer_downgrades_when_total_wrong(seeded_engine):
     ans = build_answer_from_trace(seeded_engine, result.trace, result.final_text)
     assert ans["confidence"] == "insufficient"
     assert ans["total"] is None
+
+
+def test_grounded_analytical_answer_is_not_insufficient(seeded_engine):
+    # A state_field/analytical trace (no resolve_entity) is still grounded.
+    trace = [
+        {"type": "tool_use", "name": "state_field", "input": {"state": "AZ"}},
+        {"type": "tool_result", "name": "state_field",
+         "payload": {"state": "AZ", "candidates": [
+             {"district": "06", "cand_id": "H2AZ06099", "name": "X",
+              "party": "DEM", "itemized": "500.00"}]}},
+        {"type": "result", "text": "Here are Arizona's leading candidates."},
+    ]
+    ans = build_answer_from_trace(seeded_engine, trace,
+                                  "Here are Arizona's leading candidates.")
+    assert ans["confidence"] == "high"
