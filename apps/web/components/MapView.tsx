@@ -99,6 +99,7 @@ export function MapView({ scene }: { scene: Scene | null }) {
     for (const layer of [BUBBLES_SOURCE, FLOWS_HIT_LAYER]) {
       map.on('mousemove', layer, show);
       map.on('mouseleave', layer, hide);
+      map.on('click', layer, show); // tap support on touch devices
     }
 
     const ro = new ResizeObserver(() => map.resize());
