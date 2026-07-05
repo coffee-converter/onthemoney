@@ -6,6 +6,7 @@ from otm_data.load import (
 from otm_data.oracle import (
     resolve_candidate, committees_for_candidate, total_raised, top_donors,
     candidate_finance, contributions_by_state, district_candidates,
+    classify_industry, industry_breakdown, top_employers,
 )
 from otm_data.load import load_candidate_totals
 
@@ -21,6 +22,24 @@ def _seed(engine):
     load_linkages(engine, _lines("ccl_sample.txt"))
     load_contributions(engine, _lines("itcont_sample.txt"),
                        cmte_ids=linked_committee_ids(engine))
+
+
+def test_classify_industry():
+    assert classify_industry("GOOGLE LLC") == "Technology"
+    assert classify_industry("GOLDMAN SACHS") == "Finance"
+    assert classify_industry("RETIRED") == "Retired / Not employed"
+    assert classify_industry("") == "Unlisted"
+    assert classify_industry("ACME WIDGETS") == "Other"
+
+
+def test_industry_breakdown_reconciles(db_engine):
+    _seed(db_engine)
+    cand = resolve_candidate(db_engine, state="AZ", district="06")
+    inds = industry_breakdown(db_engine, cand.cand_id)
+    assert inds
+    assert sum(i.amount for i in inds) == total_raised(db_engine, cand.cand_id)
+    emps = top_employers(db_engine, cand.cand_id, n=5)
+    assert emps and emps[0].amount > 0
 
 
 def test_district_candidates_ranked(db_engine):

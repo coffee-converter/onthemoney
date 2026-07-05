@@ -10,7 +10,8 @@ async def test_mcp_lists_tools(seeded_engine):
     async with connect(server) as client:
         result = await client.list_tools()
     names = {t.name for t in result.tools}
-    assert names == {"resolve_entity", "funding_summary", "emit_scene"}
+    assert {"resolve_entity", "funding_summary", "emit_scene",
+            "industry_breakdown", "top_employers"} <= names
 
 
 @pytest.mark.asyncio

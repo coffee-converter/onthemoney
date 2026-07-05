@@ -6,17 +6,7 @@ from claude_agent_sdk import (
 )
 from otm_agent.config import get_settings
 from otm_agent.registry import tool_specs, get_spec
-
-SYSTEM_PROMPT = (
-    "You answer questions about U.S. House campaign finance for the 2024 cycle "
-    "using only the provided tools. Report only what the tools return. State "
-    "figures exactly as returned. If a district has no candidate or no receipts, "
-    "say so plainly. Stay strictly descriptive and non-partisan: no endorsements, "
-    "no predictions, no value judgments. When funding_summary returns receipts "
-    "(the official total raised) and individual_total, lead with the official "
-    "total raised, then how much came from individuals, then the top itemized "
-    "donors. Always call emit_scene after reporting so the map reflects the answer."
-)
+from otm_agent.runtime import SYSTEM_PROMPT
 
 # This module is the local Claude Agent SDK demo entrypoint. The deployed and
 # evaluated request path is the pure-Python Anthropic loop in runtime.py; both
@@ -53,15 +43,15 @@ async def handle_emit_scene(args) -> dict:
     return _text(get_spec("emit_scene").handler(_require_engine(), args))
 
 
-_ADAPTERS = {
-    "resolve_entity": handle_resolve_entity,
-    "funding_summary": handle_funding_summary,
-    "emit_scene": handle_emit_scene,
-}
+def _make_adapter(name: str):
+    async def _adapter(args) -> dict:
+        return _text(get_spec(name).handler(_require_engine(), args))
+    return _adapter
 
 
 def _build_tools():
-    return [tool(s.name, s.description, s.input_schema)(_ADAPTERS[s.name])
+    # One adapter per registered tool, so new tools are picked up automatically.
+    return [tool(s.name, s.description, s.input_schema)(_make_adapter(s.name))
             for s in tool_specs()]
 
 

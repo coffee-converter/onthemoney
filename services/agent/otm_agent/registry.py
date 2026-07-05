@@ -5,7 +5,7 @@ from otm_agent.tools import resolve_entity, funding_summary
 from otm_agent.geo import district_centroid
 from otm_agent.scene import build_scene
 from otm_agent.config import get_settings
-from otm_data.oracle import contributions_by_state
+from otm_data.oracle import contributions_by_state, industry_breakdown, top_employers
 
 
 @dataclass
@@ -31,6 +31,25 @@ def _funding_summary(engine: Engine, args: dict) -> dict:
     return {"total": fs.total, "receipts": fs.receipts,
             "individual_total": fs.individual_total,
             "donors": [asdict(d) for d in fs.donors]}
+
+
+def _industry_breakdown(engine: Engine, args: dict) -> dict:
+    inds = industry_breakdown(engine, args["cand_id"],
+                              election_yr=int(args.get("cycle", 2024)))
+    return {"industries": [
+        {"industry": i.industry, "amount": f"{i.amount:.2f}", "count": i.count}
+        for i in inds
+    ]}
+
+
+def _top_employers(engine: Engine, args: dict) -> dict:
+    emps = top_employers(engine, args["cand_id"],
+                         election_yr=int(args.get("cycle", 2024)),
+                         n=int(args.get("n", 10)))
+    return {"employers": [
+        {"employer": e.employer, "amount": f"{e.amount:.2f}", "count": e.count}
+        for e in emps
+    ]}
 
 
 def _emit_scene(engine: Engine, args: dict) -> dict:
@@ -71,6 +90,32 @@ _SPECS = [
             "required": ["cand_id"],
         },
         handler=_funding_summary,
+    ),
+    ToolSpec(
+        name="industry_breakdown",
+        description="Break a candidate's itemized individual donations into industry "
+                    "buckets (from donor employers), ranked by dollars. Use to answer "
+                    "what kinds of money fund a candidate (grassroots vs corporate, etc).",
+        input_schema={
+            "type": "object",
+            "properties": {"cand_id": {"type": "string", "description": "FEC candidate id"}},
+            "required": ["cand_id"],
+        },
+        handler=_industry_breakdown,
+    ),
+    ToolSpec(
+        name="top_employers",
+        description="Rank the employers whose people give a candidate the most itemized "
+                    "money. Use for 'which companies / who funds X'.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "cand_id": {"type": "string", "description": "FEC candidate id"},
+                "n": {"type": "integer", "description": "How many to return (default 10)"},
+            },
+            "required": ["cand_id"],
+        },
+        handler=_top_employers,
     ),
     ToolSpec(
         name="emit_scene",

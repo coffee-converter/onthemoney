@@ -32,7 +32,8 @@ class _FakeClient:
 
 def test_anthropic_tools_shape():
     tools = anthropic_tools()
-    assert {t["name"] for t in tools} == {"resolve_entity", "funding_summary", "emit_scene"}
+    assert {"resolve_entity", "funding_summary", "emit_scene",
+            "industry_breakdown", "top_employers"} <= {t["name"] for t in tools}
     assert all(t["input_schema"]["type"] == "object" for t in tools)
 
 

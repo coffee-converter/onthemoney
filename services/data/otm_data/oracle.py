@@ -135,6 +135,96 @@ def district_candidates(engine: Engine, *, state: str, district: str,
     ]
 
 
+@dataclass
+class EmployerTotal:
+    employer: str
+    amount: Decimal
+    count: int
+
+
+@dataclass
+class IndustryTotal:
+    industry: str
+    amount: Decimal
+    count: int
+
+
+# Heuristic employer -> industry buckets (keyword match on the employer string).
+# Not an authoritative classification, but enough to surface funding composition.
+_INDUSTRY_RULES: list[tuple[str, tuple[str, ...]]] = [
+    ("Retired / Not employed",
+     ("RETIRED", "NOT EMPLOYED", "UNEMPLOYED", "HOMEMAKER", "SELF EMPLOYED",
+      "SELF-EMPLOYED")),
+    ("Technology",
+     ("GOOGLE", "ALPHABET", "META", "FACEBOOK", "APPLE", "AMAZON", "MICROSOFT",
+      "NVIDIA", "TESLA", "NETFLIX", "ORACLE", "SALESFORCE", "INTEL", "SOFTWARE",
+      "TECHNOLOG", "SEMICONDUCTOR")),
+    ("Finance",
+     ("GOLDMAN", "MORGAN", "JPMORGAN", "CITADEL", "BLACKROCK", "BLACKSTONE",
+      "BANK", "CAPITAL", "FINANCIAL", "INVESTMENT", "EQUITY", "SECURITIES",
+      "WELLS FARGO", "CITI", "HEDGE", "VENTURE")),
+    ("Law", ("LAW", "LLP", "ATTORNEY", "LEGAL")),
+    ("Healthcare",
+     ("HEALTH", "MEDICAL", "HOSPITAL", "PHARMA", "PFIZER", "MERCK", "KAISER",
+      "UNITEDHEALTH", "PHYSICIAN", "CLINIC", "BIOTECH")),
+    ("Energy",
+     ("EXXON", "CHEVRON", "ENERGY", "PETROLEUM", "SOLAR", " OIL", "OIL ", "GAS ")),
+    ("Real Estate",
+     ("REALTY", "REAL ESTATE", "PROPERTIES", "REALTOR", "DEVELOPMENT")),
+    ("Education", ("UNIVERSITY", "COLLEGE", "SCHOOL", "EDUCATION", "ACADEM")),
+    ("Government / Public",
+     ("CITY OF", "STATE OF", "COUNTY OF", "FEDERAL", "GOVERNMENT", "PUBLIC")),
+]
+
+
+def classify_industry(employer: str | None) -> str:
+    e = (employer or "").strip().upper()
+    if not e:
+        return "Unlisted"
+    for name, keywords in _INDUSTRY_RULES:
+        if any(k in e for k in keywords):
+            return name
+    return "Other"
+
+
+def top_employers(engine: Engine, cand_id: str, *, election_yr: int = 2024,
+                  n: int = 10) -> list[EmployerTotal]:
+    with engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT COALESCE(NULLIF(TRIM(ct.employer), ''), '(unlisted)') AS emp, "
+            "SUM(ct.amount) AS amt, COUNT(*) AS cnt FROM contributions ct "
+            "JOIN candidate_committee cc ON cc.cmte_id = ct.cmte_id "
+            "WHERE cc.cand_id = :c AND cc.election_yr = :yr "
+            "AND COALESCE(ct.memo_cd, '') <> 'X' "
+            "GROUP BY COALESCE(NULLIF(TRIM(ct.employer), ''), '(unlisted)') "
+            "ORDER BY amt DESC, emp ASC LIMIT :n"
+        ), {"c": cand_id, "yr": election_yr, "n": n}).all()
+    return [EmployerTotal(employer=r[0], amount=Decimal(r[1]), count=int(r[2]))
+            for r in rows]
+
+
+def industry_breakdown(engine: Engine, cand_id: str, *,
+                       election_yr: int = 2024) -> list[IndustryTotal]:
+    # Pull employer-level sums, then fold into industry buckets in Python.
+    with engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT COALESCE(ct.employer, '') AS emp, SUM(ct.amount) AS amt, "
+            "COUNT(*) AS cnt FROM contributions ct "
+            "JOIN candidate_committee cc ON cc.cmte_id = ct.cmte_id "
+            "WHERE cc.cand_id = :c AND cc.election_yr = :yr "
+            "AND COALESCE(ct.memo_cd, '') <> 'X' "
+            "GROUP BY COALESCE(ct.employer, '')"
+        ), {"c": cand_id, "yr": election_yr}).all()
+    agg: dict[str, list] = {}
+    for emp, amt, cnt in rows:
+        bucket = agg.setdefault(classify_industry(emp), [Decimal(0), 0])
+        bucket[0] += Decimal(amt)
+        bucket[1] += int(cnt)
+    out = [IndustryTotal(industry=k, amount=v[0], count=v[1]) for k, v in agg.items()]
+    out.sort(key=lambda x: x.amount, reverse=True)
+    return out
+
+
 def candidate_finance(engine: Engine, cand_id: str, *,
                       election_yr: int = 2024) -> CandidateFinance | None:
     # Official FEC totals for the candidate (accurate headline figures), as

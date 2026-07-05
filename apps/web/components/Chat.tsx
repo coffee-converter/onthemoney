@@ -22,6 +22,8 @@ const FRIENDLY: Record<string, { active: string; done: string }> = {
   resolve_candidate: { active: 'Identifying the candidate', done: 'Candidate identified' },
   funding_summary: { active: 'Pulling FEC funding totals', done: 'Funding totals retrieved' },
   top_donors: { active: 'Ranking the largest donors', done: 'Top donors ranked' },
+  industry_breakdown: { active: 'Breaking donations down by industry', done: 'Industry breakdown ready' },
+  top_employers: { active: 'Ranking the top employers', done: 'Top employers ranked' },
   emit_scene: { active: 'Mapping the money by state', done: 'Map rendered' },
 };
 

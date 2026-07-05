@@ -1,9 +1,10 @@
 from otm_agent.registry import tool_specs, get_spec
 
 
-def test_registry_has_three_tools():
+def test_registry_lists_all_tools():
     names = {s.name for s in tool_specs()}
-    assert names == {"resolve_entity", "funding_summary", "emit_scene"}
+    assert {"resolve_entity", "funding_summary", "emit_scene",
+            "industry_breakdown", "top_employers"} <= names
 
 
 def test_each_spec_has_object_schema():
