@@ -402,15 +402,15 @@ button:disabled {
 }
 
 .otm-candidate .cand-party {
-  margin-left: 6px;
-  font-size: 10px;
-  font-weight: 600;
+  margin-left: 7px;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--accent);
 }
 
 .otm-candidate .cand-district {
-  margin-top: 1px;
-  font-size: 10px;
+  margin-top: 2px;
+  font-size: 12px;
   letter-spacing: 0.04em;
   color: var(--muted);
 }
