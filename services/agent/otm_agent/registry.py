@@ -7,7 +7,7 @@ from otm_agent.scene import build_scene
 from otm_agent.config import get_settings
 from otm_data.oracle import (
     contributions_by_state, industry_breakdown, top_employers, state_field,
-    state_totals,
+    state_totals, search_candidates,
 )
 
 
@@ -60,6 +60,14 @@ def _state_field(engine: Engine, args: dict) -> dict:
     return {"state": args["state"].upper(), "candidates": [
         {"district": e.district, "cand_id": e.cand_id, "name": e.name,
          "party": e.party, "itemized": f"{e.itemized:.2f}"} for e in entries]}
+
+
+def _find_candidate(engine: Engine, args: dict) -> dict:
+    matches = search_candidates(engine, args["name"])
+    return {"query": args["name"], "insufficient": len(matches) == 0, "matches": [
+        {"cand_id": m.cand_id, "name": m.name, "state": m.state,
+         "district": m.district, "party": m.party,
+         "itemized": f"{m.itemized:.2f}"} for m in matches]}
 
 
 def _donor_geography(engine: Engine, args: dict) -> dict:
@@ -244,6 +252,20 @@ _SPECS = [
         description="Resolve a U.S. House district to its 2024 candidate and committees",
         input_schema=_STATE_DISTRICT,
         handler=_resolve_entity,
+    ),
+    ToolSpec(
+        name="find_candidate",
+        description="Look up House candidates by name - grounds a person to a real "
+                    "cand_id, state, and district from FEC data. Use whenever the user "
+                    "names a person instead of a district; do NOT guess someone's "
+                    "district from memory. Returns ranked matches (most-funded first).",
+        input_schema={
+            "type": "object",
+            "properties": {"name": {"type": "string",
+                                    "description": "Candidate name, any word order"}},
+            "required": ["name"],
+        },
+        handler=_find_candidate,
     ),
     ToolSpec(
         name="funding_summary",

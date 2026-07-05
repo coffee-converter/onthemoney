@@ -20,6 +20,7 @@ function money(x: string | null | undefined): string | null {
 const FRIENDLY: Record<string, { active: string; done: string }> = {
   resolve_entity: { active: 'Identifying the candidate', done: 'Candidate identified' },
   resolve_candidate: { active: 'Identifying the candidate', done: 'Candidate identified' },
+  find_candidate: { active: 'Looking up the candidate', done: 'Candidate found' },
   funding_summary: { active: 'Pulling FEC funding totals', done: 'Funding totals retrieved' },
   top_donors: { active: 'Ranking the largest donors', done: 'Top donors ranked' },
   industry_breakdown: { active: 'Breaking donations down by industry', done: 'Industry breakdown ready' },

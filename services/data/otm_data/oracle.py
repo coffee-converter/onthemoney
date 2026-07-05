@@ -191,6 +191,43 @@ def state_totals(engine: Engine, *, election_yr: int = 2024) -> list[StateFundin
 
 
 @dataclass
+class CandidateMatch:
+    cand_id: str
+    name: str
+    state: str
+    district: str
+    party: str
+    itemized: Decimal
+
+
+def search_candidates(engine: Engine, name: str, *, election_yr: int = 2024,
+                      limit: int = 8) -> list[CandidateMatch]:
+    # Ground a person's name to real FEC candidate rows (cand_id, state,
+    # district), so the agent never guesses which district someone represents.
+    # FEC names are "LAST, FIRST MIDDLE"; require every query token to appear.
+    tokens = [t for t in name.replace(",", " ").split() if len(t) > 1]
+    if not tokens:
+        return []
+    clauses = " AND ".join(f"c.name ILIKE :t{i}" for i in range(len(tokens)))
+    params: dict = {f"t{i}": f"%{tok}%" for i, tok in enumerate(tokens)}
+    params.update({"yr": election_yr, "lim": limit})
+    with engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT c.cand_id, c.name, c.office_state, c.district, c.party, "
+            "  COALESCE(SUM(ct.amount), 0) AS itemized FROM candidates c "
+            "  LEFT JOIN candidate_committee cc "
+            "    ON cc.cand_id = c.cand_id AND cc.election_yr = c.election_yr "
+            "  LEFT JOIN contributions ct "
+            "    ON ct.cmte_id = cc.cmte_id AND COALESCE(ct.memo_cd, '') <> 'X' "
+            "WHERE c.office = 'H' AND c.election_yr = :yr AND " + clauses + " "
+            "GROUP BY c.cand_id, c.name, c.office_state, c.district, c.party "
+            "ORDER BY itemized DESC LIMIT :lim"
+        ), params).all()
+    return [CandidateMatch(cand_id=r[0], name=r[1], state=r[2], district=r[3],
+                           party=r[4], itemized=Decimal(r[5])) for r in rows]
+
+
+@dataclass
 class EmployerTotal:
     employer: str
     amount: Decimal
