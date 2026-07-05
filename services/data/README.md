@@ -34,6 +34,19 @@ uv run pytest -v
 
 Stop it later with `"$PG/pg_ctl" -D .pgdata stop`.
 
+## Small slice via the FEC API (recommended for a demo)
+
+Pull just a few competitive districts through the FEC API instead of downloading
+the multi-gigabyte bulk file. Get a free key at https://api.data.gov/signup/.
+
+```bash
+FEC_API_KEY=your-key uv run python -m otm_data.fetch_slice --out-dir ./_fec
+uv run python -m otm_data.ingest --cycle 2024 --data-dir ./_fec
+```
+
+The districts it pulls (`AZ-06`, `CA-22`, `PA-08`, `TX-34`) each have a centroid
+in the front end, so the map can fly to them.
+
 ## Real bulk ingest
 
 1. Download from https://www.fec.gov/data/browse-data/?tab=bulk-data (2024):
