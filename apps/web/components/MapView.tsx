@@ -11,6 +11,7 @@ import type { Scene } from '../lib/types';
 // flows and district glow on top.
 const DARK_STYLE = {
   version: 8 as const,
+  glyphs: '/fonts/{fontstack}/{range}.pbf', // bundled locally in public/fonts
   sources: {
     carto: {
       type: 'raster' as const,

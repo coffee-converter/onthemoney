@@ -9,6 +9,7 @@ export interface MapLike {
 
 export const FLOWS_SOURCE = 'otm-flows';
 export const FLOWS_HIT_LAYER = 'otm-flows-hit';
+export const FLOW_LABELS_LAYER = 'otm-flow-labels';
 export const BUBBLES_SOURCE = 'otm-bubbles';
 
 type GeoJson = { type: 'FeatureCollection'; features: unknown[] };
@@ -77,7 +78,8 @@ function upsertSource(map: MapLike, id: string, data: GeoJson): boolean {
 }
 
 export function applyScene(map: MapLike, scene: Scene): void {
-  if (upsertSource(map, FLOWS_SOURCE, sceneToFlows(scene))) {
+  const flowsNew = upsertSource(map, FLOWS_SOURCE, sceneToFlows(scene));
+  if (flowsNew) {
     map.addLayer({
       id: FLOWS_SOURCE,
       type: 'line',
@@ -111,6 +113,32 @@ export function applyScene(map: MapLike, scene: Scene): void {
         'circle-stroke-color': COLOR,
         'circle-stroke-width': ['case', HOVER, 2.5, 1],
         'circle-stroke-opacity': 0.85,
+      },
+    });
+  }
+  if (flowsNew) {
+    // state codes ride each beam; MapLibre collision keeps them from
+    // overlapping and repositions them as you zoom. Added last, so on top.
+    map.addLayer({
+      id: FLOW_LABELS_LAYER,
+      type: 'symbol',
+      source: FLOWS_SOURCE,
+      layout: {
+        'symbol-placement': 'line',
+        // spacing larger than any on-screen beam => exactly one label per beam
+        // (no duplicates), while keeping labels along the beams near the hub.
+        'symbol-spacing': 3000,
+        'text-field': ['get', 'state'],
+        'text-font': ['Open Sans Semibold'],
+        'text-size': 11,
+        'text-allow-overlap': false,
+        'text-padding': 8,
+        'text-keep-upright': true,
+      },
+      paint: {
+        'text-color': '#e6edf3',
+        'text-halo-color': '#0d1117',
+        'text-halo-width': 1.6,
       },
     });
   }

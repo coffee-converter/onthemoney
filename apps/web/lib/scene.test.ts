@@ -60,8 +60,8 @@ describe('scene flows', () => {
     const map = fakeMap();
     applyScene(map as unknown as MapLike, SCENE);
     expect(map.addSource).toHaveBeenCalledTimes(2);
-    // flows (visible) + flows hitbox + bubbles
-    expect(map.addLayer).toHaveBeenCalledTimes(3);
+    // flows (visible) + flows hitbox + bubbles + flow labels
+    expect(map.addLayer).toHaveBeenCalledTimes(4);
     applyScene(map as unknown as MapLike, SCENE);
     expect(map.addSource).toHaveBeenCalledTimes(2);
     expect(map._sources.get(FLOWS_SOURCE)!.setData).toHaveBeenCalled();
