@@ -71,6 +71,9 @@ export function MapView({ scene }: { scene: Scene | null }) {
   const labelsRef = useRef<StateLabel[]>([]);
   const districtRef = useRef<District | null>(null);
   const pulseRef = useRef<number | null>(null);
+  const animRef = useRef<number | null>(null);
+  const animTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const animatingRef = useRef(false);
   const tipRef = useRef<{
     showTip: (
       state: string | undefined,
@@ -92,7 +95,9 @@ export function MapView({ scene }: { scene: Scene | null }) {
 
     const hub = hubRef.current;
     const labels = labelsRef.current;
-    if (hub && labels.length) {
+    if (animatingRef.current) {
+      for (const l of labels) l.el.style.opacity = '0'; // hidden until beams finish
+    } else if (hub && labels.length) {
       const hubPt = map.project(hub);
       const placements = placeLabels(
         labels.map((l) => ({ state: l.state, origin: l.origin, amount: l.amount })),
@@ -216,6 +221,8 @@ export function MapView({ scene }: { scene: Scene | null }) {
       clearTimeout(t);
       ro.disconnect();
       if (pulseRef.current) cancelAnimationFrame(pulseRef.current);
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+      if (animTimeoutRef.current) clearTimeout(animTimeoutRef.current);
       map.remove();
       mapRef.current = null;
       ready.current = false;
@@ -259,7 +266,86 @@ export function MapView({ scene }: { scene: Scene | null }) {
         map.setPaintProperty('otm-district-line', 'line-opacity', 0.9);
     };
 
+    const clearFlows = () => {
+      const f = map.getSource(FLOWS_SOURCE) as maplibregl.GeoJSONSource | undefined;
+      const b = map.getSource(BUBBLES_SOURCE) as maplibregl.GeoJSONSource | undefined;
+      f?.setData({ type: 'FeatureCollection', features: [] } as never);
+      b?.setData({ type: 'FeatureCollection', features: [] } as never);
+    };
+
+    // Draw the money beams in one by one, closest state to furthest, each
+    // growing outward from the district.
+    const animateFlows = (sc: Scene, center: [number, number]) => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+      const home = sc.highlight.state.toUpperCase();
+      const maxTotal = Math.max(1, ...sc.flows.map((f) => parseFloat(f.total) || 0));
+      const items = sc.flows
+        .map((f) => {
+          const st = f.state.toUpperCase();
+          const origin = STATE_CENTROIDS[st];
+          if (!origin) return null;
+          const amt = parseFloat(f.total) || 0;
+          return { f, st, origin, amt, dist: Math.hypot(origin[0] - center[0], origin[1] - center[1]) };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null)
+        .sort((a, b) => a.dist - b.dist);
+      const flowsSrc = map.getSource(FLOWS_SOURCE) as maplibregl.GeoJSONSource | undefined;
+      const bubblesSrc = map.getSource(BUBBLES_SOURCE) as maplibregl.GeoJSONSource | undefined;
+      const GROW = 380;
+      const stagger = Math.min(80, 1500 / Math.max(items.length, 1));
+      let start = 0;
+      const frame = (now: number) => {
+        if (!start) start = now;
+        const elapsed = now - start;
+        const lineFeats: unknown[] = [];
+        const bubbleFeats: unknown[] = [];
+        let done = true;
+        items.forEach((it, i) => {
+          const t = Math.max(0, Math.min(1, (elapsed - i * stagger) / GROW));
+          if (t < 1) done = false;
+          if (t <= 0) return;
+          const e = 1 - Math.pow(1 - t, 3); // easeOutCubic
+          // Grow from the donor state toward the district - the way money flows.
+          const tip: [number, number] = [
+            it.origin[0] + (center[0] - it.origin[0]) * e,
+            it.origin[1] + (center[1] - it.origin[1]) * e,
+          ];
+          lineFeats.push({
+            type: 'Feature',
+            geometry: { type: 'LineString', coordinates: [it.origin, tip] },
+            properties: {
+              state: it.st, total: it.f.total, count: it.f.count,
+              outOfState: it.st !== home, width: 1.5 + (it.amt / maxTotal) * 7,
+            },
+          });
+          // Donor bubble appears at the source as its beam starts.
+          bubbleFeats.push({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: it.origin },
+            properties: {
+              state: it.st, total: it.f.total, count: it.f.count,
+              outOfState: it.st !== home, radius: 4 + Math.sqrt(it.amt / maxTotal) * 16,
+            },
+          });
+        });
+        flowsSrc?.setData({ type: 'FeatureCollection', features: lineFeats } as never);
+        bubblesSrc?.setData({ type: 'FeatureCollection', features: bubbleFeats } as never);
+        placeAll();
+        if (!done) {
+          animRef.current = requestAnimationFrame(frame);
+        } else {
+          animRef.current = null;
+          animatingRef.current = false;
+          applyScene(map as unknown as MapLike, sc); // canonical final data + hover state
+          placeAll();
+        }
+      };
+      animRef.current = requestAnimationFrame(frame);
+    };
+
     const run = async () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+      if (animTimeoutRef.current) clearTimeout(animTimeoutRef.current);
       applyScene(map as unknown as MapLike, scene);
 
       const loading = !!scene.loading; // district known, funding still fetching
@@ -319,12 +405,13 @@ export function MapView({ scene }: { scene: Scene | null }) {
       }
       hubRef.current = center;
 
-      let framed = false;
+      let districtGeom: { type: string; coordinates: unknown } | null = null;
       try {
         const key = `${scene.highlight.state}-${scene.highlight.district}`;
         const res = await fetch(`/districts/${key}.json`);
         if (res.ok) {
           const feature = await res.json();
+          districtGeom = feature.geometry;
           const data = { type: 'FeatureCollection', features: [feature] };
           const existing = map.getSource('otm-district') as maplibregl.GeoJSONSource | undefined;
           if (existing) {
@@ -379,23 +466,44 @@ export function MapView({ scene }: { scene: Scene | null }) {
           // district's own centroid.
           const centroid = feature.properties?.centroid as [number, number] | undefined;
           if (loading && Array.isArray(centroid)) placeMarker(centroid);
-
-          map.fitBounds(boundsOf(feature.geometry), {
-            padding: 70,
-            duration: 1400,
-            maxZoom: 11,
-          });
-          framed = true;
         }
       } catch (e) {
         console.error('district boundary', e);
       }
-      if (loading) startPulse();
-      else stopPulse();
-      if (!framed && !loading) {
-        map.flyTo({ center, zoom: scene.camera.zoom, essential: true });
+
+      if (loading) {
+        // Phase 1: district identified - pulse it, framed tight.
+        startPulse();
+        clearFlows();
+        if (districtGeom) {
+          map.fitBounds(boundsOf(districtGeom), { padding: 70, duration: 1000, maxZoom: 12 });
+        }
+        placeAll();
+        return;
       }
-      placeAll();
+
+      // Phase 2: funding is in. Stop pulsing, zoom out to fit every beam, then
+      // draw them one by one (closest state first).
+      stopPulse();
+      animatingRef.current = true;
+      clearFlows();
+      placeAll(); // hide labels while animating
+      const bounds = new maplibregl.LngLatBounds();
+      bounds.extend(center);
+      if (districtGeom) {
+        const [[x0, y0], [x1, y1]] = boundsOf(districtGeom) as [
+          [number, number],
+          [number, number],
+        ];
+        bounds.extend([x0, y0]);
+        bounds.extend([x1, y1]);
+      }
+      for (const f of scene.flows) {
+        const o = STATE_CENTROIDS[f.state.toUpperCase()];
+        if (o) bounds.extend(o);
+      }
+      map.fitBounds(bounds, { padding: 80, duration: 1200, maxZoom: 9 });
+      animTimeoutRef.current = setTimeout(() => animateFlows(scene, center), 1250);
     };
 
     if (ready.current) run();
