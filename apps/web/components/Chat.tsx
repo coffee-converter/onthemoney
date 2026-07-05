@@ -72,9 +72,9 @@ export function Chat({
     setSteps([]);
     setAnswer(null);
     setBusy(true);
-    onCandidate(null);
     let sceneRendered = false;
     let cand: Candidate | null = null;
+    let districtKey: string | undefined;
     streamAsk(query, (step) => {
       if (step.type === 'answer') {
         const a = step as unknown as Answer;
@@ -91,6 +91,8 @@ export function Chat({
         const st = String(step.input.state ?? '').toUpperCase();
         const rawDi = step.input.district;
         if (st.length === 2 && rawDi != null && rawDi !== '') {
+          districtKey = `${st}-${String(rawDi).padStart(2, '0')}`;
+          onCandidate(null); // swap out the old card only once a new district is understood
           onScene({
             highlight: { state: st, district: String(rawDi).padStart(2, '0') },
             camera: { type: 'flyTo', lon: 0, lat: 0, zoom: 7 },
@@ -103,7 +105,7 @@ export function Chat({
       // Candidate name/party as soon as the district resolves.
       if (step.type === 'tool_result' && step.name === 'resolve_entity' && step.payload?.found) {
         const c = step.payload.candidate as { name?: string; party?: string } | undefined;
-        cand = { name: c?.name ?? '', party: c?.party };
+        cand = { name: c?.name ?? '', party: c?.party, district: districtKey };
         onCandidate(cand);
       }
       // Totals once funding returns.

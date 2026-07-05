@@ -234,10 +234,13 @@ export function MapView({
             indiv ? `<span><b>${indiv}</b> from individuals</span>` : ''
           }</div>`
         : '';
+    const district = candidate.district
+      ? `<div class="cand-district">${esc(candidate.district)}</div>`
+      : '';
     el.innerHTML =
       `<div class="cand-head">` +
       `<span class="cand-avatar">${esc(initials(candidate.name))}</span>` +
-      `<div class="cand-name">${esc(candidate.name)}${party}</div>` +
+      `<div class="cand-namecol"><div class="cand-name">${esc(candidate.name)}${party}</div>${district}</div>` +
       `</div>` +
       stats;
     el.dataset.show = '1';

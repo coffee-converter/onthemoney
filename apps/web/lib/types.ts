@@ -21,6 +21,7 @@ export interface Scene {
 export interface Candidate {
   name: string;
   party?: string;
+  district?: string; // e.g. "IL-05"
   receipts?: string | null;
   individualTotal?: string | null;
 }

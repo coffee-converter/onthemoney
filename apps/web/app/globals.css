@@ -408,6 +408,13 @@ button:disabled {
   color: var(--accent);
 }
 
+.otm-candidate .cand-district {
+  margin-top: 1px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
 .otm-candidate .cand-stats {
   display: flex;
   flex-direction: column;
