@@ -19,11 +19,21 @@ export interface Scene {
 }
 
 export interface Candidate {
+  cand_id?: string;
   name: string;
   party?: string;
   district?: string; // e.g. "IL-05"
   receipts?: string | null;
   individualTotal?: string | null;
+}
+
+export interface RosterCandidate {
+  cand_id: string;
+  name: string;
+  party: string;
+  itemized: string;
+  receipts: string | null;
+  individual_total: string | null;
 }
 
 export interface Answer {

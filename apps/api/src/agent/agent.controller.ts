@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Query, Sse } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Sse } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { AgentService } from './agent.service';
 import { AskDto, StreamMessage } from './dto';
@@ -15,5 +15,22 @@ export class AgentController {
   @Sse('ask/stream')
   stream(@Query('query') query: string): Observable<StreamMessage> {
     return this.agent.stream(query);
+  }
+
+  @Get('district/:state/:district/candidates')
+  roster(
+    @Param('state') state: string,
+    @Param('district') district: string,
+  ): Promise<unknown> {
+    return this.agent.roster(state, district);
+  }
+
+  @Get('candidate/:candId/scene')
+  candidateScene(
+    @Param('candId') candId: string,
+    @Query('state') state: string,
+    @Query('district') district: string,
+  ): Promise<unknown> {
+    return this.agent.candidateScene(candId, state, district);
   }
 }

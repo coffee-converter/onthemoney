@@ -1,4 +1,4 @@
-import type { ScoreboardData, Step } from './types';
+import type { ScoreboardData, Step, RosterCandidate, Scene } from './types';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -29,4 +29,24 @@ export async function fetchScoreboard(): Promise<ScoreboardData> {
   const res = await fetch(`${BASE}/scoreboard`);
   if (!res.ok) throw new Error(`scoreboard responded ${res.status}`);
   return (await res.json()) as ScoreboardData;
+}
+
+export async function fetchRoster(state: string, district: string): Promise<RosterCandidate[]> {
+  const res = await fetch(`${BASE}/district/${state}/${district}/candidates`);
+  if (!res.ok) throw new Error(`roster responded ${res.status}`);
+  const data = (await res.json()) as { candidates?: RosterCandidate[] };
+  return data.candidates ?? [];
+}
+
+export async function fetchCandidateScene(
+  candId: string,
+  state: string,
+  district: string,
+): Promise<{ scene: Scene | null; receipts: string | null; individual_total: string | null }> {
+  const url = `${BASE}/candidate/${encodeURIComponent(candId)}/scene?state=${encodeURIComponent(
+    state,
+  )}&district=${encodeURIComponent(district)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`candidate scene responded ${res.status}`);
+  return res.json();
 }

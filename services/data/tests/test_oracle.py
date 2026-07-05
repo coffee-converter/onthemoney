@@ -5,7 +5,7 @@ from otm_data.load import (
 )
 from otm_data.oracle import (
     resolve_candidate, committees_for_candidate, total_raised, top_donors,
-    candidate_finance, contributions_by_state,
+    candidate_finance, contributions_by_state, district_candidates,
 )
 from otm_data.load import load_candidate_totals
 
@@ -21,6 +21,16 @@ def _seed(engine):
     load_linkages(engine, _lines("ccl_sample.txt"))
     load_contributions(engine, _lines("itcont_sample.txt"),
                        cmte_ids=linked_committee_ids(engine))
+
+
+def test_district_candidates_ranked(db_engine):
+    _seed(db_engine)
+    cands = district_candidates(db_engine, state="AZ", district="06")
+    assert len(cands) >= 1
+    assert cands[0].cand_id == "H2AZ06099"
+    assert cands[0].itemized > 0
+    amounts = [c.itemized for c in cands]
+    assert amounts == sorted(amounts, reverse=True)  # ranked by itemized desc
 
 
 def test_resolve_candidate_hit(db_engine):

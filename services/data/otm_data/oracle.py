@@ -93,6 +93,48 @@ def top_donors(engine: Engine, cand_id: str, *, election_yr: int = 2024,
             for r in rows]
 
 
+@dataclass
+class CandidateSummary:
+    cand_id: str
+    name: str
+    party: str
+    itemized: Decimal
+    receipts: Decimal | None
+    individual_total: Decimal | None
+
+
+def district_candidates(engine: Engine, *, state: str, district: str,
+                        election_yr: int = 2024) -> list[CandidateSummary]:
+    # Every House candidate in the district that has itemized receipts, ranked
+    # the same way resolve_candidate ranks (by itemized individual receipts), so
+    # the top of the roster is the default "the representative" candidate.
+    with engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT c.cand_id, c.name, c.party, "
+            "COALESCE(SUM(ct.amount), 0) AS itemized, "
+            "MAX(t.receipts) AS receipts, MAX(t.individual_total) AS individual_total "
+            "FROM candidates c "
+            "LEFT JOIN candidate_committee cc "
+            "  ON cc.cand_id = c.cand_id AND cc.election_yr = c.election_yr "
+            "LEFT JOIN contributions ct "
+            "  ON ct.cmte_id = cc.cmte_id AND COALESCE(ct.memo_cd, '') <> 'X' "
+            "LEFT JOIN candidate_totals t ON t.cand_id = c.cand_id AND t.cycle = :yr "
+            "WHERE c.office = 'H' AND c.office_state = :state "
+            "  AND c.district = :district AND c.election_yr = :yr "
+            "GROUP BY c.cand_id, c.name, c.party "
+            "HAVING COALESCE(SUM(ct.amount), 0) > 0 "
+            "ORDER BY COALESCE(SUM(ct.amount), 0) DESC, c.cand_id"
+        ), {"state": state, "district": district, "yr": election_yr}).all()
+    return [
+        CandidateSummary(
+            cand_id=r[0], name=r[1], party=r[2], itemized=Decimal(r[3]),
+            receipts=Decimal(r[4]) if r[4] is not None else None,
+            individual_total=Decimal(r[5]) if r[5] is not None else None,
+        )
+        for r in rows
+    ]
+
+
 def candidate_finance(engine: Engine, cand_id: str, *,
                       election_yr: int = 2024) -> CandidateFinance | None:
     # Official FEC totals for the candidate (accurate headline figures), as

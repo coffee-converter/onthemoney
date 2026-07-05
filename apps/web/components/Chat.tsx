@@ -104,8 +104,10 @@ export function Chat({
       setSteps((prev) => [...prev, step]);
       // Candidate name/party as soon as the district resolves.
       if (step.type === 'tool_result' && step.name === 'resolve_entity' && step.payload?.found) {
-        const c = step.payload.candidate as { name?: string; party?: string } | undefined;
-        cand = { name: c?.name ?? '', party: c?.party, district: districtKey };
+        const c = step.payload.candidate as
+          | { name?: string; party?: string; cand_id?: string }
+          | undefined;
+        cand = { cand_id: c?.cand_id, name: c?.name ?? '', party: c?.party, district: districtKey };
         onCandidate(cand);
       }
       // Totals once funding returns.

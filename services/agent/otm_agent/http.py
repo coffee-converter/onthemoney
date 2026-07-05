@@ -6,7 +6,12 @@ from sse_starlette.sse import EventSourceResponse
 from sqlalchemy import Engine
 from otm_agent.runtime import run_query, stream_query
 from otm_agent.response import build_answer_from_trace
+from otm_agent.geo import district_centroid
+from otm_agent.scene import build_scene
 from otm_data.db import get_engine
+from otm_data.oracle import (
+    district_candidates, contributions_by_state, candidate_finance,
+)
 
 
 class AskRequest(BaseModel):
@@ -57,6 +62,34 @@ def create_app(engine: Engine | None = None,
             yield {"event": "answer", "data": json.dumps(answer)}
 
         return EventSourceResponse(event_gen())
+
+    @app.get("/district/{state}/{district}/candidates")
+    def district_roster(state: str, district: str):
+        cands = district_candidates(app.state.engine, state=state.upper(),
+                                    district=district)
+        return {"candidates": [
+            {"cand_id": c.cand_id, "name": c.name, "party": c.party,
+             "itemized": f"{c.itemized:.2f}",
+             "receipts": f"{c.receipts:.2f}" if c.receipts is not None else None,
+             "individual_total": (f"{c.individual_total:.2f}"
+                                  if c.individual_total is not None else None)}
+            for c in cands
+        ]}
+
+    @app.get("/candidate/{cand_id}/scene")
+    def candidate_scene(cand_id: str, state: str, district: str):
+        eng = app.state.engine
+        centroid = district_centroid(state.upper(), district)
+        flows = contributions_by_state(eng, cand_id)
+        scene = (build_scene(state=state.upper(), district=district,
+                             centroid=centroid, state_flows=flows)
+                 if centroid is not None else None)
+        fin = candidate_finance(eng, cand_id)
+        return {
+            "scene": scene,
+            "receipts": f"{fin.receipts:.2f}" if fin else None,
+            "individual_total": f"{fin.individual_total:.2f}" if fin else None,
+        }
 
     return app
 

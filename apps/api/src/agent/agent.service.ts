@@ -18,6 +18,25 @@ export class AgentService {
     return res.json();
   }
 
+  async roster(state: string, district: string): Promise<unknown> {
+    const res = await fetch(`${this.base}/district/${state}/${district}/candidates`);
+    if (!res.ok) {
+      throw new Error(`agent service responded ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async candidateScene(candId: string, state: string, district: string): Promise<unknown> {
+    const url = `${this.base}/candidate/${encodeURIComponent(candId)}/scene?state=${encodeURIComponent(
+      state,
+    )}&district=${encodeURIComponent(district)}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`agent service responded ${res.status}`);
+    }
+    return res.json();
+  }
+
   stream(query: string): Observable<StreamMessage> {
     const url = `${this.base}/ask/stream?query=${encodeURIComponent(query)}`;
     return new Observable<StreamMessage>((subscriber) => {
