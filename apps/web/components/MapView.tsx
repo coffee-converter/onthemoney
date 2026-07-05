@@ -2,7 +2,9 @@
 import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { applyScene, FLOWS_SOURCE, BUBBLES_SOURCE, type MapLike } from '../lib/scene';
+import {
+  applyScene, FLOWS_SOURCE, BUBBLES_SOURCE, FLOWS_HIT_LAYER, type MapLike,
+} from '../lib/scene';
 import type { Scene } from '../lib/types';
 
 // CARTO dark basemap (free, no API key). A muted dark canvas so the money
@@ -70,20 +72,31 @@ export function MapView({ scene }: { scene: Scene | null }) {
       closeOnClick: false,
       className: 'otm-popup',
     });
+    let hovered: string | null = null;
+    const setHover = (state: string | null) => {
+      if (hovered === state) return;
+      for (const src of [FLOWS_SOURCE, BUBBLES_SOURCE]) {
+        if (hovered) map.setFeatureState({ source: src, id: hovered }, { hover: false });
+        if (state) map.setFeatureState({ source: src, id: state }, { hover: true });
+      }
+      hovered = state;
+    };
     const show = (e: maplibregl.MapLayerMouseEvent) => {
       const f = e.features?.[0];
       if (!f) return;
       map.getCanvas().style.cursor = 'pointer';
       const p = f.properties as { state?: string; total?: string; count?: number };
+      setHover(p.state ?? null);
       const amt = Number(p.total ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
       const donors = p.count ? ` &middot; ${p.count} donor${p.count === 1 ? '' : 's'}` : '';
       popup.setLngLat(e.lngLat).setHTML(`<b>${p.state}</b> &middot; $${amt}${donors}`).addTo(map);
     };
     const hide = () => {
       map.getCanvas().style.cursor = '';
+      setHover(null);
       popup.remove();
     };
-    for (const layer of [BUBBLES_SOURCE, FLOWS_SOURCE]) {
+    for (const layer of [BUBBLES_SOURCE, FLOWS_HIT_LAYER]) {
       map.on('mousemove', layer, show);
       map.on('mouseleave', layer, hide);
     }
