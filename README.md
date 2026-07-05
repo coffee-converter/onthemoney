@@ -4,6 +4,8 @@ A conversational accountability atlas. Ask how money and power flow, and an agen
 
 `onthemoney.fyi`
 
+[![CI](https://github.com/coffee-converter/onthemoney/actions/workflows/ci.yml/badge.svg)](https://github.com/coffee-converter/onthemoney/actions/workflows/ci.yml)
+
 ## Why it's different
 
 Most products in this space can't tell you whether their answers are trustworthy. On The Money works in a domain with objective, computable ground truth: campaign-finance filings are a matter of record. That lets the agent be graded against facts rather than opinion, using a golden-dataset eval harness with deterministic assertions, CI regression gates, and a public accuracy scoreboard.
