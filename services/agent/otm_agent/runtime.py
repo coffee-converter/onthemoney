@@ -74,7 +74,7 @@ def anthropic_tools() -> list[dict]:
 
 
 def stream_query(client, prompt: str, engine: Engine, *, model: str | None = None,
-                 max_turns: int = 6):
+                 max_turns: int = 10):
     """Pure-Python Anthropic Messages API tool-use loop, yielding trace steps.
 
     `client` is any object exposing `messages.create(...)`; inject a fake in
@@ -123,7 +123,7 @@ def stream_query(client, prompt: str, engine: Engine, *, model: str | None = Non
 
 
 def run_query(client, prompt: str, engine: Engine, *, model: str | None = None,
-              max_turns: int = 6) -> AgentResult:
+              max_turns: int = 10) -> AgentResult:
     """Collect `stream_query` into a full `AgentResult`."""
     trace: list[dict] = []
     final_text = ""
