@@ -581,6 +581,13 @@ export function MapView({
       }
       if (districtRef.current) districtRef.current.el.style.opacity = '0';
       hubRef.current = null;
+      // Drop the previous district outline and candidate card immediately.
+      const ds = map.getSource('otm-district') as maplibregl.GeoJSONSource | undefined;
+      if (ds) ds.setData(EMPTY_FC as never);
+      if (cardRef.current) {
+        cardRef.current.dataset.show = '0';
+        cardRef.current.style.opacity = '0';
+      }
 
       const pointsO = sc.overlays?.find((o) => o.type === 'points');
       const regionsO = sc.overlays?.find((o) => o.type === 'regions');

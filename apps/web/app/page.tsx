@@ -23,7 +23,9 @@ export default function Home() {
   // Load the roster of every candidate in the district when the district changes.
   useEffect(() => {
     if (!districtKey) {
+      // overlay / custom-map scenes have no single district
       setRoster([]);
+      setCandidate(null);
       return;
     }
     const [state, district] = districtKey.split('-');
