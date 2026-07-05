@@ -70,6 +70,15 @@ export function MapView({ scene }: { scene: Scene | null }) {
   const hubRef = useRef<[number, number] | null>(null);
   const labelsRef = useRef<StateLabel[]>([]);
   const districtRef = useRef<District | null>(null);
+  const tipRef = useRef<{
+    showTip: (
+      state: string | undefined,
+      total: string | number | undefined,
+      count: number | undefined,
+      lngLat: maplibregl.LngLatLike,
+    ) => void;
+    hideTip: () => void;
+  } | null>(null);
 
   // Reposition every overlay element against the current camera. Runs on every
   // map move so labels track the viewport and the watermark rescales.
@@ -135,7 +144,8 @@ export function MapView({ scene }: { scene: Scene | null }) {
     map.on('error', (e) => console.error('maplibre', e?.error ?? e));
     map.on('move', placeAll);
 
-    // Hover tooltips on the money flows and state bubbles.
+    // Shared tooltip + highlight, driven by both the map layers and the HTML
+    // state labels (the natural place a person points).
     const popup = new maplibregl.Popup({
       closeButton: false,
       closeOnClick: false,
@@ -150,24 +160,33 @@ export function MapView({ scene }: { scene: Scene | null }) {
       }
       hovered = state;
     };
-    const show = (e: maplibregl.MapLayerMouseEvent) => {
-      const f = e.features?.[0];
-      if (!f) return;
+    const showTip = (
+      state: string | undefined,
+      total: string | number | undefined,
+      count: number | undefined,
+      lngLat: maplibregl.LngLatLike,
+    ) => {
       map.getCanvas().style.cursor = 'pointer';
-      const p = f.properties as { state?: string; total?: string; count?: number };
-      setHover(p.state ?? null);
-      const amt = Number(p.total ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
-      const donors = p.count ? ` &middot; ${p.count} donor${p.count === 1 ? '' : 's'}` : '';
-      popup.setLngLat(e.lngLat).setHTML(`<b>${p.state}</b> &middot; $${amt}${donors}`).addTo(map);
+      setHover(state ?? null);
+      const amt = Number(total ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
+      const donors = count ? ` &middot; ${count} donor${count === 1 ? '' : 's'}` : '';
+      popup.setLngLat(lngLat).setHTML(`<b>${state}</b> &middot; $${amt}${donors}`).addTo(map);
     };
-    const hide = () => {
+    const hideTip = () => {
       map.getCanvas().style.cursor = '';
       setHover(null);
       popup.remove();
     };
+    tipRef.current = { showTip, hideTip };
+    const show = (e: maplibregl.MapLayerMouseEvent) => {
+      const f = e.features?.[0];
+      if (!f) return;
+      const p = f.properties as { state?: string; total?: string; count?: number };
+      showTip(p.state, p.total, p.count, e.lngLat);
+    };
     for (const layer of [BUBBLES_SOURCE, FLOWS_HIT_LAYER]) {
       map.on('mousemove', layer, show);
-      map.on('mouseleave', layer, hide);
+      map.on('mouseleave', layer, hideTip);
       map.on('click', layer, show); // tap support on touch devices
     }
 
@@ -217,6 +236,20 @@ export function MapView({ scene }: { scene: Scene | null }) {
           const lab = document.createElement('div');
           lab.className = `otm-label ${st === home ? 'is-in' : 'is-out'}`;
           lab.textContent = st;
+          const total = f.total;
+          const count = f.count;
+          lab.addEventListener('mouseenter', () => {
+            const tip = tipRef.current;
+            if (!tip) return;
+            const r = lab.getBoundingClientRect();
+            const cr = map.getContainer().getBoundingClientRect();
+            const lngLat = map.unproject([
+              r.left + r.width / 2 - cr.left,
+              r.top + r.height / 2 - cr.top,
+            ]);
+            tip.showTip(st, total, count, lngLat);
+          });
+          lab.addEventListener('mouseleave', () => tipRef.current?.hideTip());
           cont.appendChild(lab);
           labelsRef.current.push({ state: st, origin, amount: parseFloat(f.total) || 0, el: lab });
         }

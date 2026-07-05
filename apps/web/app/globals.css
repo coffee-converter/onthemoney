@@ -319,7 +319,8 @@ button:disabled {
   letter-spacing: 0.02em;
   text-shadow: 0 0 3px #0d1117, 0 0 3px #0d1117, 0 1px 2px #0d1117;
   transition: opacity 0.15s ease;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
   will-change: transform;
 }
 
@@ -339,7 +340,8 @@ button:disabled {
   font-weight: 800;
   line-height: 1;
   letter-spacing: 0.04em;
-  color: rgba(255, 210, 74, 0.13);
+  color: rgba(255, 216, 102, 0.32);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.55);
   white-space: nowrap;
   pointer-events: none;
   transition: opacity 0.2s ease;
