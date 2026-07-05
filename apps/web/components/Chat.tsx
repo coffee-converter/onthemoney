@@ -139,7 +139,6 @@ export function Chat({
   }
 
   const acts = activities(steps);
-  const mapDone = steps.some((s) => s.type === 'tool_result' && s.name === 'emit_scene');
 
   return (
     <div className="chat">
@@ -161,13 +160,6 @@ export function Chat({
 
       <div className="chat-results">
       <ol className="trace">
-        {busy && acts.length === 0 && (
-          <li className="trace-active">
-            <span className="trace-spinner" />
-            <span>Understanding your question</span>
-            <span className="dots" />
-          </li>
-        )}
         {acts.map((a, i) => (
           <li key={i} className={a.done ? 'trace-done' : 'trace-active'}>
             {a.done ? <span className="trace-icon">✓</span> : <span className="trace-spinner" />}
@@ -175,10 +167,10 @@ export function Chat({
             {!a.done && <span className="dots" />}
           </li>
         ))}
-        {busy && !answer && mapDone && (
+        {busy && !answer && !acts.some((a) => !a.done) && (
           <li className="trace-active">
             <span className="trace-spinner" />
-            <span>Compiling the donor breakdown</span>
+            <span>{acts.length === 0 ? 'Understanding your question' : 'Composing the answer'}</span>
             <span className="dots" />
           </li>
         )}
