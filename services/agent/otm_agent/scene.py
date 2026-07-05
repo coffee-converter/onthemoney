@@ -10,7 +10,8 @@ def build_scene(*, state: str, district: str, centroid: tuple[float, float],
         "camera": {"type": "flyTo", "lon": lon, "lat": lat, "zoom": DISTRICT_ZOOM},
         "highlight": {"state": state, "district": district},
         "flows": [
-            {"label": d.name, "employer": d.employer, "amount": d.amount}
+            {"label": d.name, "employer": d.employer, "amount": d.amount,
+             "state": d.state}
             for d in donors
         ],
     }

@@ -13,8 +13,8 @@ const SCENE: Scene = {
   camera: { type: 'flyTo', lon: -110.5, lat: 32.0, zoom: 7 },
   highlight: { state: 'AZ', district: '06' },
   flows: [
-    { label: 'DOE, JOHN', employer: 'ACME', amount: '500.00' },
-    { label: 'ROE, JANE', employer: 'SELF', amount: '250.00' },
+    { label: 'DOE, JOHN', employer: 'ACME', amount: '500.00', state: 'AZ' },
+    { label: 'ROE, JANE', employer: 'SELF', amount: '250.00', state: 'NY' },
   ],
 };
 
@@ -41,8 +41,23 @@ describe('scene mapping', () => {
     expect(gj.features).toHaveLength(1);
   });
 
-  it('builds one flow line per donor', () => {
+  it('builds one flow line per donor with a known state', () => {
     expect(sceneToFlows(SCENE).features).toHaveLength(2);
+  });
+
+  it('tags in-state vs out-of-state donors', () => {
+    const feats = sceneToFlows(SCENE).features as Array<{
+      properties: { label: string; outOfState: boolean };
+    }>;
+    const az = feats.find((f) => f.properties.label === 'DOE, JOHN');
+    const ny = feats.find((f) => f.properties.label === 'ROE, JANE');
+    expect(az?.properties.outOfState).toBe(false); // home state AZ
+    expect(ny?.properties.outOfState).toBe(true);
+  });
+
+  it('skips donors whose state has no centroid', () => {
+    const noState = { ...SCENE, flows: [{ label: 'X', employer: 'Y', amount: '1.00' }] };
+    expect(sceneToFlows(noState).features).toHaveLength(0);
   });
 
   it('flies the camera and adds both layers on first apply', () => {

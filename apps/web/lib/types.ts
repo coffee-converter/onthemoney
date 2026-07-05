@@ -9,6 +9,7 @@ export interface Flow {
   label: string;
   employer: string;
   amount: string;
+  state?: string;
 }
 
 export interface Scene {

@@ -15,6 +15,12 @@ export default function Home() {
     <main className="layout">
       <section className="map-pane">
         <MapView scene={scene} />
+        {scene && (
+          <div className="map-legend">
+            <span><i className="in" />in-state money</span>
+            <span><i className="out" />out-of-state money</span>
+          </div>
+        )}
       </section>
       <aside className="rail">
         <Chat onScene={setScene} />

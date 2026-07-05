@@ -1,5 +1,7 @@
 'use client';
 import { useState, type FormEvent } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { streamAsk } from '../lib/api';
 import type { Answer, Scene, Step } from '../lib/types';
 import { ConfidenceChip } from './ConfidenceChip';
@@ -62,17 +64,21 @@ export function Chat({ onScene }: { onScene: (s: Scene) => void }) {
       </form>
 
       <ol className="trace">
-        {steps.map((s, i) => (
-          <li key={i} className={`trace-${s.type}`}>
-            {stepLabel(s)}
-          </li>
-        ))}
+        {steps
+          .filter((s) => s.type === 'tool_use' || s.type === 'tool_result')
+          .map((s, i) => (
+            <li key={i} className={`trace-${s.type}`}>
+              {stepLabel(s)}
+            </li>
+          ))}
       </ol>
 
       {answer && (
         <div className="answer">
           <ConfidenceChip level={answer.confidence} />
-          <p>{answer.text}</p>
+          <div className="answer-body">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{answer.text}</ReactMarkdown>
+          </div>
           <Citations items={answer.citations} />
         </div>
       )}

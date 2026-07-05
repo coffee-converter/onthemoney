@@ -17,6 +17,7 @@ class DonorLine:
     name: str
     employer: str
     amount: str
+    state: str = ""
 
 
 @dataclass
@@ -42,6 +43,7 @@ def funding_summary(engine: Engine, cand_id: str, *, cycle: int = 2024,
     return FundingSummary(
         cand_id=cand_id,
         total=f"{total:.2f}",
-        donors=[DonorLine(name=d.name, employer=d.employer, amount=f"{d.amount:.2f}")
+        donors=[DonorLine(name=d.name, employer=d.employer,
+                          amount=f"{d.amount:.2f}", state=d.state)
                 for d in donors],
     )

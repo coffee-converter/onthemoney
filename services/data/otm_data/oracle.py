@@ -17,6 +17,7 @@ class DonorTotal:
     name: str
     employer: str
     amount: Decimal
+    state: str = ""
 
 
 def resolve_candidate(engine: Engine, *, state: str, district: str,
@@ -66,7 +67,8 @@ def top_donors(engine: Engine, cand_id: str, *, election_yr: int = 2024,
                n: int = 10) -> list[DonorTotal]:
     with engine.connect() as conn:
         rows = conn.execute(text(
-            "SELECT ct.name, COALESCE(ct.employer, '') AS employer, SUM(ct.amount) AS amt "
+            "SELECT ct.name, COALESCE(ct.employer, '') AS employer, "
+            "MAX(COALESCE(ct.state, '')) AS state, SUM(ct.amount) AS amt "
             "FROM contributions ct "
             "JOIN candidate_committee cc ON cc.cmte_id = ct.cmte_id "
             "WHERE cc.cand_id = :c AND cc.election_yr = :yr "
@@ -74,4 +76,5 @@ def top_donors(engine: Engine, cand_id: str, *, election_yr: int = 2024,
             "GROUP BY ct.name, COALESCE(ct.employer, '') "
             "ORDER BY amt DESC, ct.name ASC LIMIT :n"
         ), {"c": cand_id, "yr": election_yr, "n": n}).all()
-    return [DonorTotal(name=r[0], employer=r[1], amount=Decimal(r[2])) for r in rows]
+    return [DonorTotal(name=r[0], employer=r[1], state=r[2], amount=Decimal(r[3]))
+            for r in rows]

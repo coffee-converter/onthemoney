@@ -70,3 +70,4 @@ def test_top_donors_excludes_memo_and_orders(db_engine):
     assert len(donors) == 1
     assert donors[0].name == "DOE, JOHN"
     assert donors[0].amount == Decimal("500.00")
+    assert donors[0].state == "AZ"

@@ -1,4 +1,5 @@
 import type { Scene } from './types';
+import { STATE_CENTROIDS } from './stateCentroids';
 
 export interface MapLike {
   flyTo(opts: Record<string, unknown>): void;
@@ -31,21 +32,22 @@ export function sceneToHighlight(scene: Scene): GeoJson {
   };
 }
 
+// One line per donor, from their home state's centroid into the district.
+// In-state and out-of-state flows are tagged so they can be colored apart.
 export function sceneToFlows(scene: Scene): GeoJson {
   const center: [number, number] = [scene.camera.lon, scene.camera.lat];
-  const n = Math.max(scene.flows.length, 1);
-  const features = scene.flows.map((f, i) => {
-    const angle = (i / n) * Math.PI * 2;
-    const start: [number, number] = [
-      center[0] + Math.cos(angle) * 1.5,
-      center[1] + Math.sin(angle) * 1.5,
-    ];
-    return {
+  const homeState = scene.highlight.state.toUpperCase();
+  const features: unknown[] = [];
+  for (const f of scene.flows) {
+    const st = (f.state || '').toUpperCase();
+    const origin = STATE_CENTROIDS[st];
+    if (!origin) continue;
+    features.push({
       type: 'Feature',
-      geometry: { type: 'LineString', coordinates: [start, center] },
-      properties: { label: f.label, amount: f.amount },
-    };
-  });
+      geometry: { type: 'LineString', coordinates: [origin, center] },
+      properties: { label: f.label, amount: f.amount, outOfState: st !== homeState },
+    });
+  }
   return { type: 'FeatureCollection', features };
 }
 
@@ -65,8 +67,8 @@ function upsert(
 }
 
 // applyScene is how the agent "steers the world": it flies the camera to the
-// district and paints the money flows and the highlight from the scene spec
-// the agent emitted.
+// district and paints the donor money flows and the highlight from the scene
+// spec the agent emitted.
 export function applyScene(map: MapLike, scene: Scene): void {
   map.flyTo({
     center: [scene.camera.lon, scene.camera.lat],
@@ -77,12 +79,17 @@ export function applyScene(map: MapLike, scene: Scene): void {
     id: FLOWS_SOURCE,
     type: 'line',
     source: FLOWS_SOURCE,
-    paint: { 'line-color': '#4aa3ff', 'line-width': 2, 'line-opacity': 0.7 },
+    paint: {
+      // in-state money green, out-of-state money orange
+      'line-color': ['case', ['get', 'outOfState'], '#e08a4a', '#37c871'],
+      'line-width': 1.6,
+      'line-opacity': 0.75,
+    },
   });
   upsert(map, HIGHLIGHT_SOURCE, sceneToHighlight(scene), {
     id: HIGHLIGHT_SOURCE,
     type: 'circle',
     source: HIGHLIGHT_SOURCE,
-    paint: { 'circle-radius': 8, 'circle-color': '#ffd24a', 'circle-opacity': 0.85 },
+    paint: { 'circle-radius': 8, 'circle-color': '#ffd24a', 'circle-opacity': 0.9 },
   });
 }
