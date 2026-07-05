@@ -46,5 +46,11 @@
       "neutral_ok": true,
       "confidence": "insufficient"
     }
-  ]
+  ],
+  "coverage": {
+    "cycle": 2024,
+    "districts": 470,
+    "candidates": 3039,
+    "contributions": 3949765
+  }
 }

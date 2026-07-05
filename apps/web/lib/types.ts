@@ -50,4 +50,10 @@ export interface ScoreboardData {
     neutral_ok: boolean;
     confidence: string;
   }[];
+  coverage?: {
+    cycle: number;
+    districts: number;
+    candidates: number;
+    contributions: number;
+  };
 }

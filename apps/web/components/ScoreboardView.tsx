@@ -24,6 +24,14 @@ export function ScoreboardView({ data }: { data: ScoreboardData }) {
       <p className="subtle">
         Graded against provable FEC ground truth. {data.item_count} cases.
       </p>
+      {data.coverage && (
+        <p className="subtle coverage">
+          Dataset: {data.coverage.districts.toLocaleString()} House districts ·{' '}
+          {data.coverage.candidates.toLocaleString()} candidates ·{' '}
+          {data.coverage.contributions.toLocaleString()} individual contributions ·{' '}
+          {data.coverage.cycle} cycle
+        </p>
+      )}
       <div className="metrics">
         <Metric label="Accuracy" value={pct(data.accuracy)} />
         <Metric label="Trajectory" value={pct(data.trajectory_accuracy)} />

@@ -295,6 +295,12 @@ button:disabled {
   display: none;
 }
 
+.scoreboard .coverage {
+  margin-top: -0.25rem;
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+
 .otm-overlay {
   position: absolute;
   inset: 0;
