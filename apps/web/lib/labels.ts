@@ -137,6 +137,42 @@ function distToRing(x: number, y: number, ring: LngLat[]): number {
   return min;
 }
 
+// Centered horizontal/vertical half-extents of the polygon through a point -
+// how far the shape reaches left/right and up/down before an edge. Lets an
+// elongated district fit much larger horizontal text than an inscribed circle.
+export function chordExtents(
+  ring: LngLat[],
+  px: number,
+  py: number,
+): { halfW: number; halfH: number } {
+  let left = Infinity;
+  let right = Infinity;
+  let up = Infinity;
+  let down = Infinity;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [x1, y1] = ring[i];
+    const [x2, y2] = ring[j];
+    if (y1 > py !== y2 > py) {
+      const xc = x1 + ((py - y1) / (y2 - y1)) * (x2 - x1);
+      const dx = xc - px;
+      if (dx >= 0) right = Math.min(right, dx);
+      else left = Math.min(left, -dx);
+    }
+    if (x1 > px !== x2 > px) {
+      const yc = y1 + ((px - x1) / (x2 - x1)) * (y2 - y1);
+      const dy = yc - py;
+      if (dy >= 0) up = Math.min(up, dy);
+      else down = Math.min(down, -dy);
+    }
+  }
+  const halfW = Math.min(left, right);
+  const halfH = Math.min(up, down);
+  return {
+    halfW: Number.isFinite(halfW) ? halfW : 0,
+    halfH: Number.isFinite(halfH) ? halfH : 0,
+  };
+}
+
 export function labelSpot(ring: LngLat[], n = 40): { x: number; y: number; r: number } {
   let minX = Infinity;
   let minY = Infinity;
@@ -163,9 +199,13 @@ export function labelSpot(ring: LngLat[], n = 40): { x: number; y: number; r: nu
 
 const NEAR = 46; // keep labels off the hub
 const MARGIN = 26; // keep labels off the viewport edge
+// Along-beam offsets (px) tried when the target spot is taken - nudging a label
+// in/out along its own line keeps it visually tied to its beam.
+const ALONG = [0, 24, -24, 48, -48, 72, -72, 100, -100, 130, -130];
 
-// Position along each visible beam is a monotonic function of the state's real
-// distance, so a closer state's label is never farther out than a farther one.
+// Labels are spaced by distance RANK (not raw distance), so far outliers like
+// HI and AK don't compress every continental label toward the hub. Rank is
+// monotonic in distance, so a closer state still sits nearer the district.
 export function placeLabels(
   labels: LabelInput[],
   hub: Pt,
@@ -176,17 +216,19 @@ export function placeLabels(
   pad = 22,
 ): Placement[] {
   const rect: Rect = { xmin: pad, ymin: pad, xmax: width - pad, ymax: height - pad };
-  // Real (geographic) distance drives placement; swap this for a distance-rank
-  // fraction here if even spacing is ever preferred over true magnitude.
   const withDist = labels.map((L) => ({
     L,
     s: project(L.origin),
     dist: Math.hypot(L.origin[0] - hubLngLat[0], L.origin[1] - hubLngLat[1]),
   }));
-  const maxD = Math.max(1e-6, ...withDist.map((e) => e.dist));
+  // Even fraction 0..1 by distance rank -> labels spread across the whole span.
+  const ranked = [...withDist].sort((a, b) => a.dist - b.dist);
+  const fracOf = new Map<string, number>();
+  ranked.forEach((e, i) =>
+    fracOf.set(e.L.state, ranked.length <= 1 ? 0.6 : i / (ranked.length - 1)),
+  );
   const placed: Box[] = [];
-  // Biggest dollars first so that when two would overlap, the important one wins
-  // its (distance-correct) spot and the other is hidden - never reordered.
+  // Biggest dollars first so the important labels claim their spot.
   const order = [...withDist].sort((a, b) => b.L.amount - a.L.amount);
   const out: Placement[] = [];
   for (const e of order) {
@@ -197,16 +239,24 @@ export function placeLabels(
       const dB = Math.hypot(seg.bx - hub.x, seg.by - hub.y);
       const lo = Math.min(dA + NEAR, dB);
       const hi = Math.max(dB - MARGIN, lo);
-      const d = lo + (e.dist / maxD) * (hi - lo); // closest -> lo, farthest -> hi
+      const target = lo + (fracOf.get(e.L.state) ?? 0.6) * (hi - lo);
       const beamLen = Math.hypot(e.s.x - hub.x, e.s.y - hub.y) || 1;
-      const x = hub.x + ((e.s.x - hub.x) / beamLen) * d;
-      const y = hub.y + ((e.s.y - hub.y) / beamLen) * d;
+      const ux = (e.s.x - hub.x) / beamLen;
+      const uy = (e.s.y - hub.y) / beamLen;
       const w = e.L.state.length * 8 + 12;
       const h = 18;
-      const box: Box = { x0: x - w / 2, y0: y - h / 2, x1: x + w / 2, y1: y + h / 2 };
-      if (!placed.some((p) => overlaps(p, box))) {
-        placed.push(box);
-        placement = { state: e.L.state, x, y, visible: true };
+      // Dodge overlaps by nudging along the beam (in/out), staying on the line.
+      for (const delta of ALONG) {
+        const d = Math.min(Math.max(target + delta, dA), dB);
+        const x = hub.x + ux * d;
+        const y = hub.y + uy * d;
+        if (x < rect.xmin || x > rect.xmax || y < rect.ymin || y > rect.ymax) continue;
+        const box: Box = { x0: x - w / 2, y0: y - h / 2, x1: x + w / 2, y1: y + h / 2 };
+        if (!placed.some((p) => overlaps(p, box))) {
+          placed.push(box);
+          placement = { state: e.L.state, x, y, visible: true };
+          break;
+        }
       }
     }
     out.push(placement);

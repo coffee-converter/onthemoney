@@ -52,6 +52,22 @@ describe('placeLabels', () => {
     expect(dNear).toBeLessThan(dFar);
   });
 
+  it('rank-spaces so a far outlier does not clamp the rest near the hub', () => {
+    const labels: LabelInput[] = [
+      { state: 'A', origin: [250, 250], amount: 1 },
+      { state: 'B', origin: [50, 50], amount: 1 },
+      { state: 'C', origin: [-2000, -2000], amount: 1 }, // far outlier, like HI/AK
+    ];
+    const res = placeLabels(labels, { x: 350, y: 350 }, [350, 350], project, 400, 400, 0);
+    const a = res.find((r) => r.state === 'A')!;
+    const b = res.find((r) => r.state === 'B')!;
+    expect(a.visible).toBe(true);
+    expect(b.visible).toBe(true);
+    const dA = Math.hypot(a.x - 350, a.y - 350);
+    const dB = Math.hypot(b.x - 350, b.y - 350);
+    expect(dB).toBeGreaterThan(dA + 30); // middle label pushed out, not clamped
+  });
+
   it('hides the lower-dollar label when two crowd the same spot', () => {
     const labels: LabelInput[] = [
       { state: 'CA', origin: [20, 20], amount: 100 },
