@@ -70,6 +70,7 @@ export function MapView({ scene }: { scene: Scene | null }) {
   const hubRef = useRef<[number, number] | null>(null);
   const labelsRef = useRef<StateLabel[]>([]);
   const districtRef = useRef<District | null>(null);
+  const pulseRef = useRef<number | null>(null);
   const tipRef = useRef<{
     showTip: (
       state: string | undefined,
@@ -214,6 +215,7 @@ export function MapView({ scene }: { scene: Scene | null }) {
     return () => {
       clearTimeout(t);
       ro.disconnect();
+      if (pulseRef.current) cancelAnimationFrame(pulseRef.current);
       map.remove();
       mapRef.current = null;
       ready.current = false;
@@ -224,17 +226,45 @@ export function MapView({ scene }: { scene: Scene | null }) {
     const map = mapRef.current;
     if (!map || !scene) return;
 
-    const run = async () => {
-      applyScene(map as unknown as MapLike, scene);
-
-      const center: [number, number] = [scene.camera.lon, scene.camera.lat];
+    const placeMarker = (at: [number, number]) => {
       if (!markerRef.current) {
         const el = document.createElement('div');
         el.className = 'otm-pulse';
-        markerRef.current = new maplibregl.Marker({ element: el }).setLngLat(center).addTo(map);
+        markerRef.current = new maplibregl.Marker({ element: el }).setLngLat(at).addTo(map);
       } else {
-        markerRef.current.setLngLat(center);
+        markerRef.current.setLngLat(at);
       }
+    };
+    // Pulse the district glow while funding is still loading.
+    const startPulse = () => {
+      if (pulseRef.current) return;
+      const tick = (now: number) => {
+        const phase = (Math.sin(now / 450) + 1) / 2;
+        if (map.getLayer('otm-district-fill'))
+          map.setPaintProperty('otm-district-fill', 'fill-opacity', 0.05 + phase * 0.18);
+        if (map.getLayer('otm-district-line'))
+          map.setPaintProperty('otm-district-line', 'line-opacity', 0.45 + phase * 0.55);
+        pulseRef.current = requestAnimationFrame(tick);
+      };
+      pulseRef.current = requestAnimationFrame(tick);
+    };
+    const stopPulse = () => {
+      if (pulseRef.current) {
+        cancelAnimationFrame(pulseRef.current);
+        pulseRef.current = null;
+      }
+      if (map.getLayer('otm-district-fill'))
+        map.setPaintProperty('otm-district-fill', 'fill-opacity', 0.06);
+      if (map.getLayer('otm-district-line'))
+        map.setPaintProperty('otm-district-line', 'line-opacity', 0.9);
+    };
+
+    const run = async () => {
+      applyScene(map as unknown as MapLike, scene);
+
+      const loading = !!scene.loading; // district known, funding still fetching
+      const center: [number, number] = [scene.camera.lon, scene.camera.lat];
+      if (!loading) placeMarker(center);
 
       // Rebuild the state-label overlay for this scene.
       const cont = overlay.current;
@@ -345,6 +375,11 @@ export function MapView({ scene }: { scene: Scene | null }) {
             districtRef.current = { spot: [spot.x, spot.y], r: spot.r, ratio, el };
           }
 
+          // While loading we have no real camera yet; anchor the marker on the
+          // district's own centroid.
+          const centroid = feature.properties?.centroid as [number, number] | undefined;
+          if (loading && Array.isArray(centroid)) placeMarker(centroid);
+
           map.fitBounds(boundsOf(feature.geometry), {
             padding: 70,
             duration: 1400,
@@ -355,7 +390,9 @@ export function MapView({ scene }: { scene: Scene | null }) {
       } catch (e) {
         console.error('district boundary', e);
       }
-      if (!framed) {
+      if (loading) startPulse();
+      else stopPulse();
+      if (!framed && !loading) {
         map.flyTo({ center, zoom: scene.camera.zoom, essential: true });
       }
       placeAll();

@@ -15,6 +15,7 @@ export interface Scene {
   camera: { type: string; lon: number; lat: number; zoom: number };
   highlight: { state: string; district: string };
   flows: Flow[];
+  loading?: boolean; // district identified, funding still being fetched
 }
 
 export interface Answer {

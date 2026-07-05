@@ -74,6 +74,20 @@ export function Chat({ onScene }: { onScene: (s: Scene) => void }) {
         setBusy(false);
         return;
       }
+      // As soon as the district is identified, render it (pulsing) while the
+      // rest of the answer is still being fetched.
+      if (step.type === 'tool_use' && step.name === 'resolve_entity' && step.input) {
+        const st = String(step.input.state ?? '').toUpperCase();
+        const rawDi = step.input.district;
+        if (st.length === 2 && rawDi != null && rawDi !== '') {
+          onScene({
+            highlight: { state: st, district: String(rawDi).padStart(2, '0') },
+            camera: { type: 'flyTo', lon: 0, lat: 0, zoom: 7 },
+            flows: [],
+            loading: true,
+          });
+        }
+      }
       setSteps((prev) => [...prev, step]);
       if (
         step.type === 'tool_result' &&
