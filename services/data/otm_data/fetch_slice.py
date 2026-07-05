@@ -8,6 +8,8 @@ key at https://api.data.gov/signup/ and pass it via `--api-key` or `FEC_API_KEY`
 import argparse
 import json
 import os
+import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -28,9 +30,22 @@ class FecApiClient:
     def _get(self, path: str, params: dict) -> list[dict]:
         params = {**params, "api_key": self._key}
         url = f"{self._base}{path}?{urllib.parse.urlencode(params)}"
-        with urllib.request.urlopen(url, timeout=30) as resp:
-            body = json.loads(resp.read())
-        return body.get("results", [])
+        last: Exception | None = None
+        delay = 3
+        for attempt in range(4):
+            try:
+                with urllib.request.urlopen(url, timeout=60) as resp:
+                    return json.loads(resp.read()).get("results", [])
+            except urllib.error.HTTPError as err:
+                if err.code == 429 and attempt < 3:  # rate limited: back off
+                    time.sleep(delay)
+                    delay *= 2
+                    last = err
+                    continue
+                raise
+            except TimeoutError as err:  # Schedule A can be slow
+                last = err
+        raise last  # type: ignore[misc]
 
     def candidates(self, state: str, district: str, cycle: int) -> list[dict]:
         return self._get("/candidates/", {
@@ -50,6 +65,11 @@ class FecApiClient:
             "is_individual": "true",
             "per_page": min(limit, 100),
         })
+
+
+def _join(fields: list) -> str:
+    # FEC API values can be null; render None as an empty field.
+    return "|".join("" if x is None else str(x) for x in fields)
 
 
 def _fec_date(iso: str) -> str:
@@ -77,7 +97,7 @@ def candidate_line(cand: dict, cycle: int, pcc_id: str) -> str:
     f[5] = cand.get("office", "H")
     f[6] = str(cand.get("district", "")).zfill(2)
     f[9] = pcc_id
-    return "|".join(f)
+    return _join(f)
 
 
 def committee_line(cmte: dict, candidate_id: str) -> str:
@@ -85,7 +105,7 @@ def committee_line(cmte: dict, candidate_id: str) -> str:
     f[0] = cmte.get("committee_id", "")
     f[1] = cmte.get("name", "")
     f[14] = candidate_id
-    return "|".join(f)
+    return _join(f)
 
 
 def linkage_line(candidate_id: str, committee_id: str, cycle: int) -> str:
@@ -93,7 +113,7 @@ def linkage_line(candidate_id: str, committee_id: str, cycle: int) -> str:
     f[0] = candidate_id
     f[2] = str(cycle)
     f[3] = committee_id
-    return "|".join(f)
+    return _join(f)
 
 
 def contribution_line(contrib: dict, committee_id: str) -> str:
@@ -110,26 +130,41 @@ def contribution_line(contrib: dict, committee_id: str) -> str:
     f[14] = _amount(contrib.get("contribution_receipt_amount", 0))
     f[18] = contrib.get("memo_code") or ""
     f[20] = str(contrib.get("sub_id", ""))
-    return "|".join(f)
+    return _join(f)
+
+
+def _safe(fn, label: str):
+    # Skip a slow or unreachable endpoint instead of aborting the whole fetch;
+    # a real auth/rate-limit error (HTTPError) still propagates.
+    try:
+        return fn()
+    except urllib.error.HTTPError:
+        raise
+    except (TimeoutError, urllib.error.URLError, OSError) as err:
+        print(f"  warn: {label} failed ({err}); skipping", file=sys.stderr)
+        return []
 
 
 def build_slice(client, districts, *, cycle: int = 2024,
-                per_committee: int = 100) -> dict[str, list[str]]:
+                per_committee: int = 50) -> dict[str, list[str]]:
     cn: list[str] = []
     cm: list[str] = []
     ccl: list[str] = []
     itcont: list[str] = []
     for state, district in districts:
-        for cand in client.candidates(state, district, cycle):
+        for cand in _safe(lambda: client.candidates(state, district, cycle),
+                          f"{state}-{district} candidates"):
             cand_id = cand.get("candidate_id", "")
-            cmtes = client.committees(cand_id, cycle)
+            cmtes = _safe(lambda: client.committees(cand_id, cycle),
+                          f"committees for {cand_id}")
             pcc = cmtes[0].get("committee_id", "") if cmtes else ""
             cn.append(candidate_line(cand, cycle, pcc))
             for cmte in cmtes:
                 cid = cmte.get("committee_id", "")
                 cm.append(committee_line(cmte, cand_id))
                 ccl.append(linkage_line(cand_id, cid, cycle))
-                for contrib in client.schedule_a(cid, cycle, per_committee):
+                for contrib in _safe(lambda: client.schedule_a(cid, cycle, per_committee),
+                                     f"contributions for {cid}"):
                     itcont.append(contribution_line(contrib, cid))
     return {"cn": cn, "cm": cm, "ccl": ccl, "itcont": itcont}
 
@@ -145,7 +180,7 @@ def main() -> None:
     ap.add_argument("--api-key", default=os.environ.get("FEC_API_KEY", "DEMO_KEY"))
     ap.add_argument("--out-dir", type=Path, default=Path("./_fec"))
     ap.add_argument("--cycle", type=int, default=2024)
-    ap.add_argument("--per-committee", type=int, default=100)
+    ap.add_argument("--per-committee", type=int, default=50)
     args = ap.parse_args()
 
     client = FecApiClient(args.api_key)

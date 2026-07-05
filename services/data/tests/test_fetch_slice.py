@@ -61,6 +61,27 @@ def test_emitted_lines_parse_correctly():
     assert contrib.sub_id == "SUBA"
 
 
+class NullFieldClient(FakeClient):
+    def schedule_a(self, committee_id, cycle, limit):
+        # Real FEC rows often have null employer/occupation/city.
+        return [
+            {"contributor_name": "DOE, JOHN", "contributor_city": None,
+             "contributor_state": "AZ", "contributor_zip": None,
+             "contributor_employer": None, "contributor_occupation": None,
+             "contribution_receipt_date": "2024-06-15T00:00:00",
+             "contribution_receipt_amount": 250.0, "memo_code": None, "sub_id": "SUBX"},
+        ]
+
+
+def test_null_contribution_fields_do_not_crash():
+    slice_ = build_slice(NullFieldClient(), [("AZ", "06")], cycle=2024)
+    contrib = parse_contribution(slice_["itcont"][0])
+    assert contrib.entity_type == "IND"
+    assert contrib.employer == ""
+    assert contrib.amount == Decimal("250.00")
+    assert contrib.sub_id == "SUBX"
+
+
 def test_write_slice_creates_bulk_files(tmp_path):
     slice_ = build_slice(FakeClient(), [("AZ", "06")], cycle=2024)
     write_slice(slice_, tmp_path)
