@@ -350,7 +350,13 @@ export function MapView({ scene }: { scene: Scene | null }) {
 
       const loading = !!scene.loading; // district known, funding still fetching
       const center: [number, number] = [scene.camera.lon, scene.camera.lat];
-      if (!loading) placeMarker(center);
+      if (!loading) {
+        // Hide the just-applied beams right away so they don't flash before the
+        // zoom-out and draw-in animation.
+        animatingRef.current = true;
+        clearFlows();
+        placeMarker(center);
+      }
 
       // Rebuild the state-label overlay for this scene.
       const cont = overlay.current;

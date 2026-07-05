@@ -66,11 +66,14 @@ export function Chat({ onScene }: { onScene: (s: Scene) => void }) {
     setSteps([]);
     setAnswer(null);
     setBusy(true);
+    let sceneRendered = false;
     streamAsk(query, (step) => {
       if (step.type === 'answer') {
         const a = step as unknown as Answer;
         setAnswer(a);
-        if (a.scene) onScene(a.scene);
+        // Only render here if emit_scene didn't already - avoids re-running the
+        // draw-in animation when the final answer arrives.
+        if (a.scene && !sceneRendered) onScene(a.scene);
         setBusy(false);
         return;
       }
@@ -96,6 +99,7 @@ export function Chat({ onScene }: { onScene: (s: Scene) => void }) {
         'highlight' in step.payload
       ) {
         onScene(step.payload as unknown as Scene);
+        sceneRendered = true;
       }
     });
   }
@@ -122,6 +126,14 @@ export function Chat({ onScene }: { onScene: (s: Scene) => void }) {
             {friendly(a.name, a.done)}
           </li>
         ))}
+        {busy &&
+          !answer &&
+          steps.some((s) => s.type === 'tool_result' && s.name === 'emit_scene') && (
+            <li className="trace-active">
+              <span className="trace-icon">○</span>
+              Compiling the donor breakdown
+            </li>
+          )}
       </ol>
 
       {answer && (
