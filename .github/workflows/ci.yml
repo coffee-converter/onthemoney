@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: otm
+          POSTGRES_PASSWORD: otm
+          POSTGRES_DB: otm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U otm"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      OTM_TEST_DATABASE_URL: postgresql+psycopg://otm:otm@localhost:5432/otm
+      OTM_DATABASE_URL: postgresql+psycopg://otm:otm@localhost:5432/otm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: data package
+        working-directory: services/data
+        run: uv sync --extra dev && uv run pytest -q
+      - name: agent package
+        working-directory: services/agent
+        run: uv sync --extra dev && uv run pytest -q
+      - name: eval gate and tests
+        working-directory: services/eval
+        run: uv sync --extra dev && uv run pytest -q
+
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: install
+        working-directory: apps/api
+        run: npm ci
+      - name: test
+        working-directory: apps/api
+        run: npm test
+      - name: build
+        working-directory: apps/api
+        run: npm run build
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: install
+        working-directory: apps/web
+        run: npm ci
+      - name: typecheck
+        working-directory: apps/web
+        run: npm run typecheck
+      - name: test
+        working-directory: apps/web
+        run: npm test
+      - name: build
+        working-directory: apps/web
+        run: npm run build
