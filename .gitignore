@@ -34,3 +34,7 @@ docs/
 
 # Local dev server logs
 .devlogs/
+
+# FEC nationwide bulk zips (large; operator-downloaded)
+_bulk/
+services/data/_bulk/

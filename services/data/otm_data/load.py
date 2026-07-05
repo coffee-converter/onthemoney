@@ -70,6 +70,17 @@ def linked_committee_ids(engine: Engine, *, election_yr: int = 2024) -> set[str]
         ).scalars().all())
 
 
+def house_committee_ids(engine: Engine, *, election_yr: int = 2024) -> set[str]:
+    # Committees linked to candidates in the candidates table. When that table
+    # holds only House candidates, this returns just the House committees.
+    with engine.connect() as conn:
+        return set(conn.execute(text(
+            "SELECT DISTINCT cc.cmte_id FROM candidate_committee cc "
+            "JOIN candidates c ON c.cand_id = cc.cand_id "
+            "WHERE cc.election_yr = :yr"
+        ), {"yr": election_yr}).scalars().all())
+
+
 def load_contributions(engine: Engine, lines: Iterable[str], *, cmte_ids: set[str]) -> int:
     rows = [parse_contribution(l) for l in lines if l.strip()]
     rows = [r for r in rows if r.entity_type == "IND" and r.cmte_id in cmte_ids]
