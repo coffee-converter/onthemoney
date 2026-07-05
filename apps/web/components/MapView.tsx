@@ -21,6 +21,35 @@ function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ESC[c]);
 }
 
+const TITLES = new Set([
+  'DR', 'MR', 'MRS', 'MS', 'MISS', 'HON', 'REV', 'PROF', 'SEN', 'REP', 'MAJ', 'COL', 'CAPT', 'LT', 'SGT',
+]);
+const SUFFIXES = new Set(['JR', 'SR', 'II', 'III', 'IV', 'V']);
+
+function titleCase(s: string): string {
+  return s.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
+}
+
+// FEC stores "LAST, FIRST MIDDLE TITLE/SUFFIX". Render a clean "First Last[ Suffix]".
+function formatName(raw: string): string {
+  const name = raw.trim();
+  if (!name.includes(',')) return titleCase(name);
+  const [last, rest = ''] = name.split(',').map((s) => s.trim());
+  let first = '';
+  const suffixes: string[] = [];
+  for (const t of rest.split(/\s+/).filter(Boolean)) {
+    const c = t.replace(/\./g, '').toUpperCase();
+    if (SUFFIXES.has(c)) suffixes.push(c);
+    else if (TITLES.has(c)) continue;
+    else if (!first) first = t; // first non-title token is the given name
+    // middle names/initials dropped for a compact card
+  }
+  const suf = suffixes.length
+    ? ' ' + suffixes.map((c) => (/^[IVX]+$/.test(c) ? c : `${titleCase(c)}.`)).join(' ')
+    : '';
+  return `${titleCase(first || rest)} ${titleCase(last)}${suf}`.trim();
+}
+
 // FEC names are "LAST, FIRST" - derive first+last initials.
 function initials(name: string): string {
   const n = name.trim();
@@ -111,6 +140,7 @@ export function MapView({
   const animRef = useRef<number | null>(null);
   const animTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animatingRef = useRef(false);
+  const loadingStartRef = useRef(0);
   const tipRef = useRef<{
     showTip: (
       state: string | undefined,
@@ -240,7 +270,7 @@ export function MapView({
     el.innerHTML =
       `<div class="cand-head">` +
       `<span class="cand-avatar">${esc(initials(candidate.name))}</span>` +
-      `<div class="cand-namecol"><div class="cand-name">${esc(candidate.name)}${party}</div>${district}</div>` +
+      `<div class="cand-namecol"><div class="cand-name">${esc(formatName(candidate.name))}${party}</div>${district}</div>` +
       `</div>` +
       stats;
     el.dataset.show = '1';
@@ -601,6 +631,7 @@ export function MapView({
 
       if (loading) {
         // Phase 1: district identified - pulse it, framed tight.
+        loadingStartRef.current = performance.now();
         startPulse();
         clearFlows();
         if (districtGeom) {
@@ -610,28 +641,34 @@ export function MapView({
         return;
       }
 
-      // Phase 2: funding is in. Stop pulsing, zoom out to fit every beam, then
-      // draw them one by one (closest state first).
-      stopPulse();
-      animatingRef.current = true;
-      clearFlows();
-      placeAll(); // hide labels while animating
-      const bounds = new maplibregl.LngLatBounds();
-      bounds.extend(center);
-      if (districtGeom) {
-        const [[x0, y0], [x1, y1]] = boundsOf(districtGeom) as [
-          [number, number],
-          [number, number],
-        ];
-        bounds.extend([x0, y0]);
-        bounds.extend([x1, y1]);
-      }
-      for (const f of scene.flows) {
-        const o = STATE_CENTROIDS[f.state.toUpperCase()];
-        if (o) bounds.extend(o);
-      }
-      map.fitBounds(bounds, { padding: 110, duration: 1200, maxZoom: 9 });
-      animTimeoutRef.current = setTimeout(() => animateFlows(scene, center), 1250);
+      // Phase 2: funding is in. Zoom out to fit every beam, then draw them one by
+      // one (closest state first).
+      const doPhase2 = () => {
+        stopPulse();
+        animatingRef.current = true;
+        clearFlows();
+        placeAll(); // hide labels while animating
+        const bounds = new maplibregl.LngLatBounds();
+        bounds.extend(center);
+        if (districtGeom) {
+          const [[x0, y0], [x1, y1]] = boundsOf(districtGeom) as [
+            [number, number],
+            [number, number],
+          ];
+          bounds.extend([x0, y0]);
+          bounds.extend([x1, y1]);
+        }
+        for (const f of scene.flows) {
+          const o = STATE_CENTROIDS[f.state.toUpperCase()];
+          if (o) bounds.extend(o);
+        }
+        map.fitBounds(bounds, { padding: 110, duration: 1200, maxZoom: 9 });
+        animTimeoutRef.current = setTimeout(() => animateFlows(scene, center), 1250);
+      };
+      // Even if funding is fast, keep the district framed (pulsing) at least 2s.
+      const wait = Math.max(0, 2000 - (performance.now() - loadingStartRef.current));
+      if (wait > 0) animTimeoutRef.current = setTimeout(doPhase2, wait);
+      else doPhase2();
     };
 
     if (ready.current) run();
