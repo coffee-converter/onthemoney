@@ -520,6 +520,7 @@ export function MapView({
               geometry: f.geometry,
               properties: {
                 norm: (r.value || 0) / max,
+                color: r.color || '',
                 tip: (r.tooltip && r.tooltip.length
                   ? r.tooltip
                   : [`${r.place}: ${Math.round(r.value).toLocaleString()}`]
@@ -537,6 +538,7 @@ export function MapView({
           }
         }),
       );
+      if (!feats.length) console.warn('render_map: no district boundaries loaded', regions);
       const data = { type: 'FeatureCollection', features: feats };
       const src = map.getSource(REGION_SRC) as maplibregl.GeoJSONSource | undefined;
       if (src) {
@@ -548,9 +550,11 @@ export function MapView({
           type: 'fill',
           source: REGION_SRC,
           paint: {
-            'fill-color': ['interpolate', ['linear'], ['get', 'norm'],
-              0, '#2a2413', 0.5, '#c9971f', 1, '#ffe08a'],
-            'fill-opacity': 0.6,
+            'fill-color': ['case', ['to-boolean', ['get', 'color']],
+              ['get', 'color'],
+              ['interpolate', ['linear'], ['get', 'norm'],
+                0, '#2a2413', 0.5, '#c9971f', 1, '#ffe08a']],
+            'fill-opacity': 0.55,
           },
         });
         map.addLayer({

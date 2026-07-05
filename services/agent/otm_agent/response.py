@@ -47,14 +47,17 @@ def build_answer_from_trace(engine: Engine, trace: list[dict],
     # Prefer the exact figure the tool returned over re-parsing the model's prose
     # (the model reformats with $ and commas, which is lossy to compare).
     claimed = total_from_tool if total_from_tool is not None else parse_claimed_total(final_text)
-    if state and district:
+    # A grounded analytical / multi-candidate answer (breakdowns, comparisons,
+    # custom maps) is trustworthy by construction; only fall back to verifying a
+    # single district total for a plain funding answer.
+    if grounded:
+        confidence = "high"
+        total = None
+    elif state and district:
         verdict = supervise(engine, state=state, district=district,
                             claimed_total=claimed)
         confidence = verdict.confidence.value
         total = claimed if verdict.verified else None
-    elif grounded:
-        confidence = "high"
-        total = None
     else:
         confidence = "insufficient"
         total = None

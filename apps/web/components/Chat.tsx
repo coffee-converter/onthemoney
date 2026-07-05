@@ -82,6 +82,7 @@ export function Chat({
     let sceneRendered = false;
     let cand: Candidate | null = null;
     let districtKey: string | undefined;
+    let fundingCandId = '';
     streamAsk(query, (step) => {
       if (step.type === 'answer') {
         const a = step as unknown as Answer;
@@ -117,8 +118,17 @@ export function Chat({
         cand = { cand_id: c?.cand_id, name: c?.name ?? '', party: c?.party, district: districtKey };
         onCandidate(cand);
       }
-      // Totals once funding returns.
-      if (step.type === 'tool_result' && step.name === 'funding_summary' && cand) {
+      if (step.type === 'tool_use' && step.name === 'funding_summary') {
+        fundingCandId = String(step.input?.cand_id ?? '');
+      }
+      // Totals once funding returns - only for the resolved (primary) candidate,
+      // so a comparison's other candidate cannot overwrite the card.
+      if (
+        step.type === 'tool_result' &&
+        step.name === 'funding_summary' &&
+        cand &&
+        fundingCandId === cand.cand_id
+      ) {
         cand = {
           ...cand,
           receipts: (step.payload?.receipts as string) ?? cand.receipts,
