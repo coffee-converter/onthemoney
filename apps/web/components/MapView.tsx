@@ -553,8 +553,10 @@ export function MapView({
               [number, number],
               [number, number],
             ];
-            b.extend([x0, y0]);
-            b.extend([x1, y1]);
+            // Clamp the Aleutian antimeridian wrap (lng > -65, i.e. east of Maine)
+            // so one state doesn't blow the fit out to the whole globe.
+            b.extend([Math.min(x0, -65), y0]);
+            b.extend([Math.min(x1, -65), y1]);
           } catch {
             /* skip unreachable boundary */
           }
@@ -631,7 +633,7 @@ export function MapView({
         renderPoints(pointsO.points);
         if (!regionsO) {
           const b = new maplibregl.LngLatBounds();
-          for (const p of pointsO.points) b.extend([p.lng, p.lat]);
+          for (const p of pointsO.points) b.extend([Math.min(p.lng, -65), p.lat]);
           map.fitBounds(b, { padding: 70, duration: 1200, maxZoom: 9 });
         }
       } else {
