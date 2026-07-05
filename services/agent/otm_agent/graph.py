@@ -4,7 +4,11 @@ from sqlalchemy import Engine
 from langgraph.graph import StateGraph, START, END
 from otm_agent.answer import compose_answer, Confidence
 
-_MONEY = re.compile(r"(\d+\.\d{2})")
+_MONEY = re.compile(r"\$?([\d,]+\.\d{2})")
+
+
+def _norm_money(raw: str) -> str:
+    return raw.replace(",", "")
 
 
 @dataclass
@@ -18,7 +22,7 @@ class Verdict:
 
 def parse_claimed_total(text: str) -> str | None:
     m = _MONEY.search(text or "")
-    return m.group(1) if m else None
+    return _norm_money(m.group(1)) if m else None
 
 
 def _resolve(state: dict) -> dict:
@@ -26,7 +30,7 @@ def _resolve(state: dict) -> dict:
                          district=state["district"])
     truth = "0.00"
     for c in _MONEY.findall(ans.narration):
-        truth = c
+        truth = _norm_money(c)
         break
     state["truth_total"] = truth
     state["truth_confidence"] = ans.confidence

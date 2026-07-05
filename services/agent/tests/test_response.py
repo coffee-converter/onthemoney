@@ -47,6 +47,25 @@ def test_build_answer_high_confidence_with_citations(seeded_engine):
     assert any(c["url"].endswith("/C00770886/") for c in ans["citations"])
 
 
+def test_build_answer_uses_funding_summary_tool_total(seeded_engine):
+    # Even when the prose reformats the number with $ and commas, confidence
+    # stays high because the exact tool figure is used for verification.
+    trace = [
+        {"type": "tool_use", "name": "resolve_entity",
+         "input": {"state": "AZ", "district": "06"}},
+        {"type": "tool_result", "name": "resolve_entity",
+         "payload": {"found": True, "candidate": {"cand_id": "H2AZ06099"},
+                     "committees": ["C00770886"]}},
+        {"type": "tool_result", "name": "funding_summary",
+         "payload": {"total": "500.00", "donors": []}},
+        {"type": "result", "text": "AZ-06 reported $500.00 in itemized receipts."},
+    ]
+    ans = build_answer_from_trace(seeded_engine, trace,
+                                  "AZ-06 reported $500.00 in itemized receipts.")
+    assert ans["confidence"] == "high"
+    assert ans["total"] == "500.00"
+
+
 def test_build_answer_downgrades_when_total_wrong(seeded_engine):
     script = [
         _Resp("tool_use", [_Blk(type="tool_use", id="t1", name="resolve_entity",

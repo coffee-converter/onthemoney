@@ -7,6 +7,10 @@ def test_parse_claimed_total():
     assert parse_claimed_total("no figure here") is None
 
 
+def test_parse_claimed_total_handles_currency_and_commas():
+    assert parse_claimed_total("Total: $38,820.00 for 2024") == "38820.00"
+
+
 def test_supervise_match_keeps_high(seeded_engine):
     v = supervise(seeded_engine, state="AZ", district="06", claimed_total="500.00")
     assert v.verified is True

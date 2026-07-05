@@ -15,6 +15,7 @@ def build_answer_from_trace(engine: Engine, trace: list[dict],
     state = district = None
     committees: list[str] = []
     scene = None
+    total_from_tool = None
 
     for step in trace:
         if step["type"] == "tool_use" and step["name"] == "resolve_entity":
@@ -24,10 +25,14 @@ def build_answer_from_trace(engine: Engine, trace: list[dict],
             payload = step["payload"]
             if step["name"] == "resolve_entity" and payload.get("found"):
                 committees = payload.get("committees", [])
+            if step["name"] == "funding_summary" and "total" in payload:
+                total_from_tool = payload.get("total")
             if step["name"] == "emit_scene" and "highlight" in payload:
                 scene = payload
 
-    claimed = parse_claimed_total(final_text)
+    # Prefer the exact figure the tool returned over re-parsing the model's prose
+    # (the model reformats with $ and commas, which is lossy to compare).
+    claimed = total_from_tool if total_from_tool is not None else parse_claimed_total(final_text)
     if state and district:
         verdict = supervise(engine, state=state, district=district,
                             claimed_total=claimed)
