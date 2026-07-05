@@ -12,7 +12,9 @@ export function streamAsk(query: string, onStep: (step: Step) => void): () => vo
   for (const name of STREAM_EVENTS) {
     source.addEventListener(name, (ev) => {
       try {
-        onStep(JSON.parse((ev as MessageEvent).data) as Step);
+        const parsed = JSON.parse((ev as MessageEvent).data) as Record<string, unknown>;
+        // the answer event's payload has no `type` field; tag it from the event name
+        onStep({ ...parsed, type: (parsed.type as string) ?? name } as Step);
       } catch {
         // ignore malformed frames
       }
