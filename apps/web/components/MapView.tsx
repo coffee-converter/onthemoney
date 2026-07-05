@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { applyScene, FLOWS_SOURCE, type MapLike } from '../lib/scene';
+import { applyScene, FLOWS_SOURCE, BUBBLES_SOURCE, type MapLike } from '../lib/scene';
 import type { Scene } from '../lib/types';
 
 // CARTO dark basemap (free, no API key). A muted dark canvas so the money
@@ -63,6 +63,31 @@ export function MapView({ scene }: { scene: Scene | null }) {
       map.resize();
     });
     map.on('error', (e) => console.error('maplibre', e?.error ?? e));
+
+    // Hover tooltips on the money flows and state bubbles.
+    const popup = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      className: 'otm-popup',
+    });
+    const show = (e: maplibregl.MapLayerMouseEvent) => {
+      const f = e.features?.[0];
+      if (!f) return;
+      map.getCanvas().style.cursor = 'pointer';
+      const p = f.properties as { state?: string; total?: string; count?: number };
+      const amt = Number(p.total ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
+      const donors = p.count ? ` &middot; ${p.count} donor${p.count === 1 ? '' : 's'}` : '';
+      popup.setLngLat(e.lngLat).setHTML(`<b>${p.state}</b> &middot; $${amt}${donors}`).addTo(map);
+    };
+    const hide = () => {
+      map.getCanvas().style.cursor = '';
+      popup.remove();
+    };
+    for (const layer of [BUBBLES_SOURCE, FLOWS_SOURCE]) {
+      map.on('mousemove', layer, show);
+      map.on('mouseleave', layer, hide);
+    }
+
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(el);
     const t = setTimeout(() => map.resize(), 300);
