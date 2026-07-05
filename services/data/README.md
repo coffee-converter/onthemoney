@@ -48,8 +48,9 @@ FEC_API_KEY=your-key uv run python -m otm_data.fetch_slice --out-dir ./_fec
 uv run python -m otm_data.ingest --cycle 2024 --data-dir ./_fec
 ```
 
-The districts it pulls (`AZ-06`, `CA-22`, `PA-08`, `TX-34`) each have a centroid
-in the front end, so the map can fly to them.
+The districts it pulls by default (`IL-05`, `AZ-06`, `CA-22`, `PA-08`, `TX-34`)
+each have a centroid in the front end, so the map can fly to them. Pull specific
+districts with `--districts IL-05 AZ-06`.
 
 ## Real bulk ingest
 

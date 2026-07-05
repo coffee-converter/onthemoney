@@ -17,9 +17,18 @@ from pathlib import Path
 
 API_BASE = "https://api.open.fec.gov/v1"
 
-# A curated set of competitive 2024 U.S. House districts. Each also has a
-# centroid in the front end's districts.json, so the map can fly to it.
-DEFAULT_DISTRICTS = [("AZ", "06"), ("CA", "22"), ("PA", "08"), ("TX", "34")]
+# A curated set of 2024 U.S. House districts. Each also has a centroid in the
+# front end's districts.json, so the map can fly to it.
+DEFAULT_DISTRICTS = [("IL", "05"), ("AZ", "06"), ("CA", "22"), ("PA", "08"), ("TX", "34")]
+
+
+def parse_districts(specs: list[str]) -> list[tuple[str, str]]:
+    # "IL-05" -> ("IL", "05")
+    out = []
+    for spec in specs:
+        state, _, district = spec.partition("-")
+        out.append((state.upper(), district))
+    return out
 
 
 class FecApiClient:
@@ -181,11 +190,14 @@ def main() -> None:
     ap.add_argument("--out-dir", type=Path, default=Path("./_fec"))
     ap.add_argument("--cycle", type=int, default=2024)
     ap.add_argument("--per-committee", type=int, default=50)
+    ap.add_argument("--districts", nargs="*", default=None,
+                    help="districts to fetch, e.g. IL-05 AZ-06 (default: the curated set)")
     args = ap.parse_args()
 
+    districts = parse_districts(args.districts) if args.districts else DEFAULT_DISTRICTS
     client = FecApiClient(args.api_key)
     try:
-        lines = build_slice(client, DEFAULT_DISTRICTS, cycle=args.cycle,
+        lines = build_slice(client, districts, cycle=args.cycle,
                             per_committee=args.per_committee)
     except urllib.error.HTTPError as err:
         if err.code == 429:

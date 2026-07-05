@@ -5,7 +5,7 @@ import type { Answer, Scene, Step } from '../lib/types';
 import { ConfidenceChip } from './ConfidenceChip';
 import { Citations } from './Citations';
 
-const SAMPLE = 'Who funds the representative in AZ-06?';
+const SAMPLE = 'Who funds the representative in IL-5?';
 
 function stepLabel(step: Step): string {
   if (step.type === 'tool_use') return `Calling ${step.name}`;

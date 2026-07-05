@@ -1,5 +1,5 @@
 from decimal import Decimal
-from otm_data.fetch_slice import build_slice, write_slice
+from otm_data.fetch_slice import build_slice, write_slice, parse_districts
 from otm_data.parse import (
     parse_candidate, parse_committee, parse_linkage, parse_contribution,
 )
@@ -80,6 +80,10 @@ def test_null_contribution_fields_do_not_crash():
     assert contrib.employer == ""
     assert contrib.amount == Decimal("250.00")
     assert contrib.sub_id == "SUBX"
+
+
+def test_parse_districts():
+    assert parse_districts(["IL-05", "az-06"]) == [("IL", "05"), ("AZ", "06")]
 
 
 def test_write_slice_creates_bulk_files(tmp_path):
