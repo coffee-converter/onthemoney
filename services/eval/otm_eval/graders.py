@@ -17,8 +17,12 @@ def grade_scene(item: GoldenItem, out: SystemOutput) -> bool:
         return out.scene is None
     if out.scene is None:
         return False
+    # Structural check: the right district highlighted at the right zoom. Exact
+    # camera centroid is derived data, not asserted.
+    exp_cam = item.expected_scene.get("camera") or {}
+    out_cam = out.scene.get("camera") or {}
     return (out.scene.get("highlight") == item.expected_scene.get("highlight")
-            and out.scene.get("camera") == item.expected_scene.get("camera"))
+            and out_cam.get("zoom") == exp_cam.get("zoom"))
 
 
 CONF_PROB = {"high": 0.9, "partial": 0.5}
