@@ -62,6 +62,16 @@ def build_answer_from_trace(engine: Engine, trace: list[dict],
         confidence = "insufficient"
         total = None
 
+    # Never surface a blank answer: if the model rendered a map but wrote no
+    # prose, give the user something rather than an empty card.
+    if not final_text.strip():
+        final_text = (
+            "The map above is drawn from the underlying FEC data. Ask a follow-up "
+            "if you'd like the specific figures called out."
+            if scene or grounded
+            else "I could not find enough data to answer that."
+        )
+
     citations = [asdict(Citation(label=c, url=fec_committee_url(c)))
                  for c in committees]
     return {"text": final_text, "confidence": confidence, "total": total,

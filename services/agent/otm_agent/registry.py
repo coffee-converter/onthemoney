@@ -170,18 +170,31 @@ def _map_nation(engine: Engine, args: dict) -> dict:
     # drops one bubble per state at its centroid.
     shape = "points" if args.get("shape") == "points" else "regions"
     totals = {t.state: float(t.total) for t in state_totals(engine)}
+    counts: dict[str, int] = {}
+    for key in all_district_keys():
+        st = key.split("-")[0]
+        counts[st] = counts.get(st, 0) + 1
+    # Compact per-state summary so the model can rank and normalize (e.g. per
+    # district) instead of parsing every rendered region.
+    summary = sorted(
+        [{"state": st, "total": round(total), "districts": counts.get(st, 0),
+          "per_district": round(total / counts[st]) if counts.get(st) else 0}
+         for st, total in totals.items()],
+        key=lambda r: -r["total"],
+    )
     if shape == "points":
         items = [{"place": st, "value": total,
                   "tooltip": [st, f"${total:,.0f} raised statewide"]}
                  for st, total in sorted(totals.items(), key=lambda kv: -kv[1])]
-        return _render_map(engine, {"points": items, "title": "House funding by state"})
-    regions = []
-    for key in all_district_keys():
-        st = key.split("-")[0]
-        total = totals.get(st, 0.0)
-        regions.append({"place": key, "value": total,
-                        "tooltip": [st, f"${total:,.0f} raised statewide"]})
-    return _render_map(engine, {"regions": regions, "title": "House funding by state"})
+        scene = _render_map(engine, {"points": items, "title": "House funding by state"})
+    else:
+        regions = [{"place": key, "value": totals.get(key.split("-")[0], 0.0),
+                    "tooltip": [key.split("-")[0],
+                                f"${totals.get(key.split('-')[0], 0.0):,.0f} raised statewide"]}
+                   for key in all_district_keys()]
+        scene = _render_map(engine, {"regions": regions, "title": "House funding by state"})
+    scene["summary"] = summary
+    return scene
 
 
 def _emit_scene(engine: Engine, args: dict) -> dict:
