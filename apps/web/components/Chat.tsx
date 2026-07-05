@@ -142,7 +142,7 @@ export function Chat({
       }
       if (
         step.type === 'tool_result' &&
-        ['emit_scene', 'render_map', 'highlight_district'].includes(step.name ?? '') &&
+        ['emit_scene', 'render_map', 'map_state', 'highlight_district'].includes(step.name ?? '') &&
         step.payload &&
         !('insufficient' in step.payload)
       ) {

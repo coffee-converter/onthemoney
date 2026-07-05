@@ -594,6 +594,23 @@ button:disabled {
   will-change: transform, font-size;
 }
 
+.otm-region-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: rgba(255, 224, 138, 0.94);
+  text-shadow: 0 0 3px rgba(13, 17, 23, 0.95), 0 1px 4px rgba(0, 0, 0, 0.85);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  will-change: transform;
+}
+
 .otm-pulse {
   width: 12px;
   height: 12px;

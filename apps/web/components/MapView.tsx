@@ -19,7 +19,6 @@ function esc(s: string): string {
 // flows and district glow on top.
 const DARK_STYLE = {
   version: 8 as const,
-  glyphs: '/fonts/{fontstack}/{range}.pbf', // bundled locally for map labels
   sources: {
     carto: {
       type: 'raster' as const,
@@ -87,6 +86,7 @@ export function MapView({
   const hubRef = useRef<[number, number] | null>(null);
   const labelsRef = useRef<StateLabel[]>([]);
   const flowOriginsRef = useRef<[number, number][]>([]);
+  const regionLabelsRef = useRef<{ lngLat: [number, number]; el: HTMLDivElement }[]>([]);
   const districtRef = useRef<District | null>(null);
   const pulseRef = useRef<number | null>(null);
   const animRef = useRef<number | null>(null);
@@ -184,6 +184,14 @@ export function MapView({
       card.style.transform =
         `translate(${dot.x + hx * gap}px, ${dot.y + vy * gap}px) translate(${ax}%, ${ay}%)`;
       card.style.opacity = '1';
+    }
+
+    // Choropleth district labels, pinned to each district centroid.
+    for (const rl of regionLabelsRef.current) {
+      const p = map.project(rl.lngLat);
+      const on = p.x >= 0 && p.x <= W && p.y >= 0 && p.y <= H;
+      rl.el.style.transform = `translate(${p.x}px, ${p.y}px) translate(-50%, -50%)`;
+      rl.el.style.opacity = on ? '1' : '0';
     }
   }, []);
 
@@ -467,6 +475,8 @@ export function MapView({
         const s = map.getSource(id) as maplibregl.GeoJSONSource | undefined;
         if (s) s.setData(EMPTY_FC as never);
       }
+      for (const l of regionLabelsRef.current) l.el.remove();
+      regionLabelsRef.current = [];
     };
 
     const renderPoints = (pts: import('../lib/types').OverlayPoint[]) => {
@@ -505,10 +515,17 @@ export function MapView({
       }
     };
 
-    // Choropleth: fetch each district's boundary and shade it by value.
+    const clearRegionLabels = () => {
+      for (const l of regionLabelsRef.current) l.el.remove();
+      regionLabelsRef.current = [];
+    };
+
+    // Choropleth: fetch each district's boundary, shade it by value, and draw
+    // HTML labels at each centroid (HTML avoids the glyph/symbol-layer fragility).
     const renderRegions = async (regions: import('../lib/types').OverlayRegion[]) => {
       const max = Math.max(1, ...regions.map((r) => r.value || 0));
       const feats: unknown[] = [];
+      const labelData: { lngLat: [number, number]; text: string }[] = [];
       const b = new maplibregl.LngLatBounds();
       await Promise.all(
         regions.map(async (r) => {
@@ -522,13 +539,16 @@ export function MapView({
               properties: {
                 norm: (r.value || 0) / max,
                 color: r.color || '',
-                label: r.label || '',
                 tip: (r.tooltip && r.tooltip.length
                   ? r.tooltip
                   : [`${r.place}: ${Math.round(r.value).toLocaleString()}`]
                 ).join('\n'),
               },
             });
+            const centroid = f.properties?.centroid as [number, number] | undefined;
+            if (r.label && Array.isArray(centroid)) {
+              labelData.push({ lngLat: centroid, text: r.label });
+            }
             const [[x0, y0], [x1, y1]] = boundsOf(f.geometry) as [
               [number, number],
               [number, number],
@@ -565,26 +585,21 @@ export function MapView({
           source: REGION_SRC,
           paint: { 'line-color': '#ffd24a', 'line-width': 0.8, 'line-opacity': 0.5 },
         });
-        // District-code labels, styled like the flows-map watermark.
-        map.addLayer({
-          id: `${REGION_SRC}-label`,
-          type: 'symbol',
-          source: REGION_SRC,
-          layout: {
-            'text-field': ['get', 'label'],
-            'text-font': ['Open Sans Semibold'],
-            'text-size': 14,
-            'text-allow-overlap': false,
-          },
-          paint: {
-            'text-color': '#ffe08a',
-            'text-halo-color': '#0d1117',
-            'text-halo-width': 1.6,
-            'text-opacity': 0.92,
-          },
-        });
+      }
+      // HTML district labels (watermark-style); positioned by placeAll.
+      clearRegionLabels();
+      const cont = overlay.current;
+      if (cont) {
+        for (const d of labelData) {
+          const el = document.createElement('div');
+          el.className = 'otm-region-label';
+          el.textContent = d.text;
+          cont.appendChild(el);
+          regionLabelsRef.current.push({ lngLat: d.lngLat, el });
+        }
       }
       if (feats.length) map.fitBounds(b, { padding: 70, duration: 1200, maxZoom: 9 });
+      placeAll();
     };
 
     // Generic renderer for an agent-composed scene (render_map): point markers
@@ -629,6 +644,7 @@ export function MapView({
       } else {
         const s = map.getSource(REGION_SRC) as maplibregl.GeoJSONSource | undefined;
         if (s) s.setData(EMPTY_FC as never);
+        clearRegionLabels();
       }
     };
 
