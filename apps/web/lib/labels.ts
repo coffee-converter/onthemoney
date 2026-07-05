@@ -161,9 +161,11 @@ export function labelSpot(ring: LngLat[], n = 40): { x: number; y: number; r: nu
   return best;
 }
 
-// Fractions along the visible segment (from state end toward hub) to try when
-// the preferred spot is taken - lets a label slide inward to dodge neighbors.
-const SLOTS = [0.8, 0.62, 0.44, 0.28];
+// When crowded, shrink the along-beam distance toward the hub to dodge
+// neighbors before giving up on a label.
+const SHRINK = [1, 0.8, 0.62, 0.46, 0.32];
+const MARGIN = 26; // keep the label off the viewport edge
+const SPREAD = 0.9; // fraction of the full beam length to aim for
 
 export function placeLabels(
   labels: LabelInput[],
@@ -180,14 +182,29 @@ export function placeLabels(
   const out: Placement[] = [];
   for (const L of order) {
     const s = project(L.origin);
+    const dx = s.x - hub.x;
+    const dy = s.y - hub.y;
+    const beamLen = Math.hypot(dx, dy) || 1;
+    const ux = dx / beamLen;
+    const uy = dy / beamLen;
     const seg = clipSegment(hub, s, rect);
     let placement: Placement = { state: L.state, x: 0, y: 0, visible: false };
     if (seg) {
+      // Visible span of the beam, measured as distance from the hub.
+      const dA = Math.hypot(seg.ax - hub.x, seg.ay - hub.y);
+      const dB = Math.hypot(seg.bx - hub.x, seg.by - hub.y);
+      // Distance along the beam scaled by its length (near states pull in,
+      // far states push out), clamped inside the visible span.
+      const base =
+        dB - dA < 2 * MARGIN
+          ? (dA + dB) / 2
+          : Math.min(Math.max(beamLen * SPREAD, dA + MARGIN), dB - MARGIN);
       const w = L.state.length * 8 + 12;
       const h = 18;
-      for (const f of SLOTS) {
-        const x = seg.ax + f * (seg.bx - seg.ax);
-        const y = seg.ay + f * (seg.by - seg.ay);
+      for (const factor of SHRINK) {
+        const d = Math.min(Math.max(base * factor, dA), dB);
+        const x = hub.x + ux * d;
+        const y = hub.y + uy * d;
         const box: Box = { x0: x - w / 2, y0: y - h / 2, x1: x + w / 2, y1: y + h / 2 };
         if (!placed.some((p) => overlaps(p, box))) {
           placed.push(box);

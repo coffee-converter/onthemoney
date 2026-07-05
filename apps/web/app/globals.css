@@ -277,6 +277,10 @@ button:disabled {
   background: #ff9d3c;
 }
 
+.maplibregl-popup {
+  z-index: 6; /* above the HTML label overlay */
+}
+
 .otm-popup .maplibregl-popup-content {
   background: #161b22 !important;
   color: #e6edf3 !important;
