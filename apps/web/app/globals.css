@@ -411,15 +411,36 @@ button:disabled {
 .otm-candidate .cand-stats {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  margin-top: 3px;
+  gap: 2px;
+  margin-top: 8px;
   font-size: 11px;
   color: var(--muted);
+  text-align: left;
 }
 
 .otm-candidate .cand-stats b {
   color: #e6edf3;
   font-weight: 600;
+}
+
+.otm-candidate .cand-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.otm-candidate .cand-avatar {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 12px ui-sans-serif, system-ui, sans-serif;
+  color: #0d1117;
+  background: var(--accent);
+  letter-spacing: 0.02em;
 }
 
 .otm-district-code {

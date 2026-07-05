@@ -21,6 +21,23 @@ function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ESC[c]);
 }
 
+// FEC names are "LAST, FIRST" - derive first+last initials.
+function initials(name: string): string {
+  const n = name.trim();
+  let first = '';
+  let last = '';
+  if (n.includes(',')) {
+    const parts = n.split(',').map((s) => s.trim());
+    last = parts[0] || '';
+    first = parts[1] || '';
+  } else {
+    const p = n.split(/\s+/);
+    first = p[0] || '';
+    last = p[p.length - 1] || '';
+  }
+  return ((first[0] || '') + (last[0] || '')).toUpperCase() || '?';
+}
+
 // CARTO dark basemap (free, no API key). A muted dark canvas so the money
 // flows and district glow on top.
 const DARK_STYLE = {
@@ -88,6 +105,7 @@ export function MapView({
   const ready = useRef(false);
   const hubRef = useRef<[number, number] | null>(null);
   const labelsRef = useRef<StateLabel[]>([]);
+  const flowOriginsRef = useRef<[number, number][]>([]);
   const districtRef = useRef<District | null>(null);
   const pulseRef = useRef<number | null>(null);
   const animRef = useRef<number | null>(null);
@@ -154,8 +172,35 @@ export function MapView({
 
     const card = cardRef.current;
     if (card && card.dataset.show === '1' && hubRef.current) {
-      const p = map.project(hubRef.current);
-      card.style.transform = `translate(${p.x + 16}px, ${p.y - 14}px)`;
+      const dot = map.project(hubRef.current);
+      const cw = card.offsetWidth || 200;
+      const ch = card.offsetHeight || 60;
+      const gap = 16;
+      // Count beams per screen quadrant (right-down, left-down, right-up, left-up).
+      const q = [0, 0, 0, 0];
+      for (const o of flowOriginsRef.current) {
+        const s = map.project(o);
+        q[(s.x >= dot.x ? 0 : 1) + (s.y >= dot.y ? 0 : 2)]++;
+      }
+      // Which quadrants keep the whole card on screen.
+      const fitR = dot.x + gap + cw <= W;
+      const fitL = dot.x - gap - cw >= 0;
+      const fitD = dot.y + gap + ch <= H;
+      const fitU = dot.y - gap - ch >= 0;
+      const fit = [fitR && fitD, fitL && fitD, fitR && fitU, fitL && fitU];
+      // Emptiest quadrant that fits; if none fit, emptiest overall.
+      let best = -1;
+      for (let i = 0; i < 4; i++) if (fit[i] && (best < 0 || q[i] < q[best])) best = i;
+      if (best < 0) {
+        best = 0;
+        for (let i = 1; i < 4; i++) if (q[i] < q[best]) best = i;
+      }
+      const hx = best % 2 === 0 ? 1 : -1;
+      const vy = best < 2 ? 1 : -1;
+      const ax = hx > 0 ? 0 : -100;
+      const ay = vy > 0 ? 0 : -100;
+      card.style.transform =
+        `translate(${dot.x + hx * gap}px, ${dot.y + vy * gap}px) translate(${ax}%, ${ay}%)`;
       card.style.opacity = '1';
     }
   }, []);
@@ -189,7 +234,12 @@ export function MapView({
             indiv ? `<span><b>${indiv}</b> from individuals</span>` : ''
           }</div>`
         : '';
-    el.innerHTML = `<div class="cand-name">${esc(candidate.name)}${party}</div>${stats}`;
+    el.innerHTML =
+      `<div class="cand-head">` +
+      `<span class="cand-avatar">${esc(initials(candidate.name))}</span>` +
+      `<div class="cand-name">${esc(candidate.name)}${party}</div>` +
+      `</div>` +
+      stats;
     el.dataset.show = '1';
     placeAll();
   }, [candidate, placeAll]);
@@ -352,8 +402,8 @@ export function MapView({
         .sort((a, b) => a.dist - b.dist);
       const flowsSrc = map.getSource(FLOWS_SOURCE) as maplibregl.GeoJSONSource | undefined;
       const bubblesSrc = map.getSource(BUBBLES_SOURCE) as maplibregl.GeoJSONSource | undefined;
-      const GROW = 380;
-      const stagger = Math.min(80, 1500 / Math.max(items.length, 1));
+      const GROW = 700; // each beam draws over ~0.7s so the motion is legible
+      const stagger = Math.min(140, 2600 / Math.max(items.length, 1));
       let start = 0;
       const frame = (now: number) => {
         if (!start) start = now;
@@ -365,7 +415,7 @@ export function MapView({
           const t = Math.max(0, Math.min(1, (elapsed - i * stagger) / GROW));
           if (t < 1) done = false;
           if (t <= 0) return;
-          const e = 1 - Math.pow(1 - t, 3); // easeOutCubic
+          const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; // easeInOutCubic
           // Grow from the donor state toward the district - the way money flows.
           const tip: [number, number] = [
             it.origin[0] + (center[0] - it.origin[0]) * e,
@@ -418,6 +468,11 @@ export function MapView({
         clearFlows();
         placeMarker(center);
       }
+      flowOriginsRef.current = loading
+        ? []
+        : scene.flows
+            .map((f) => STATE_CENTROIDS[f.state.toUpperCase()])
+            .filter((o): o is [number, number] => Array.isArray(o));
 
       // Rebuild the state-label overlay for this scene.
       const cont = overlay.current;
@@ -572,7 +627,7 @@ export function MapView({
         const o = STATE_CENTROIDS[f.state.toUpperCase()];
         if (o) bounds.extend(o);
       }
-      map.fitBounds(bounds, { padding: 80, duration: 1200, maxZoom: 9 });
+      map.fitBounds(bounds, { padding: 110, duration: 1200, maxZoom: 9 });
       animTimeoutRef.current = setTimeout(() => animateFlows(scene, center), 1250);
     };
 
