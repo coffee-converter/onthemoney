@@ -73,8 +73,14 @@ export default function Home() {
         )}
       </section>
       <aside className="rail">
-        <Chat onScene={setScene} onCandidate={setCandidate} />
-        <Roster candidates={roster} activeCandId={candidate?.cand_id} onPick={pickCandidate} />
+        <Chat
+          onScene={setScene}
+          onCandidate={setCandidate}
+          onReset={() => setRoster([])}
+          roster={
+            <Roster candidates={roster} activeCandId={candidate?.cand_id} onPick={pickCandidate} />
+          }
+        />
       </aside>
     </main>
   );

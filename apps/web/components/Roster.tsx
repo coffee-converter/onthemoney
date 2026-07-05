@@ -1,5 +1,5 @@
 import type { RosterCandidate } from '../lib/types';
-import { formatName, partyLabel, money } from '../lib/format';
+import { formatName, partyLabel, partyColor, money } from '../lib/format';
 
 export function Roster({
   candidates,
@@ -30,11 +30,15 @@ export function Roster({
               >
                 <div className="roster-head">
                   <span className="roster-name">{formatName(c.name)}</span>
-                  {p && <span className="roster-party">{p}</span>}
+                  {p && (
+                    <span className="roster-party" style={{ color: partyColor(c.party) }}>
+                      {p}
+                    </span>
+                  )}
                   <span className="roster-amt">{money(c.itemized)}</span>
                 </div>
                 <div className="roster-bar">
-                  <span style={{ width: `${pct}%` }} />
+                  <span style={{ width: `${pct}%`, background: partyColor(c.party) }} />
                 </div>
               </button>
             </li>

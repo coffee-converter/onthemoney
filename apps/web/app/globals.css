@@ -70,8 +70,27 @@ body {
   flex: 0 0 420px;
   border-left: 1px solid var(--line);
   padding: 1.25rem;
-  overflow-y: auto;
   background: var(--panel);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.chat-top {
+  flex: none;
+}
+
+.chat-results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* Phones and narrow screens: stack the map over the conversation. */
@@ -101,6 +120,16 @@ body {
     width: 100%;
     border-left: none;
     border-top: 1px solid var(--line);
+    display: block;
+    overflow: visible;
+  }
+
+  .chat {
+    display: block;
+  }
+
+  .chat-results {
+    overflow: visible;
   }
 
   .scoreboard table {
@@ -398,6 +427,8 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  max-height: 32vh;
+  overflow-y: auto;
 }
 
 .roster-row {
@@ -484,7 +515,7 @@ button:disabled {
   padding: 7px 10px;
   background: rgba(13, 17, 23, 0.92);
   border: 1px solid #2a3038;
-  border-left: 3px solid var(--accent);
+  border-left: 3px solid var(--party-color, var(--accent));
   border-radius: 6px;
   box-shadow: 0 3px 14px rgba(0, 0, 0, 0.5);
   pointer-events: none;
@@ -502,7 +533,7 @@ button:disabled {
   margin-left: 7px;
   font-size: 13px;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--party-color, var(--accent));
 }
 
 .otm-candidate .cand-district {
@@ -542,8 +573,8 @@ button:disabled {
   align-items: center;
   justify-content: center;
   font: 700 12px ui-sans-serif, system-ui, sans-serif;
-  color: #0d1117;
-  background: var(--accent);
+  color: #fff;
+  background: var(--party-color, var(--accent));
   letter-spacing: 0.02em;
 }
 

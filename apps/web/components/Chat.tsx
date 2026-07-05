@@ -1,5 +1,5 @@
 'use client';
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { streamAsk } from '../lib/api';
@@ -57,9 +57,13 @@ function activities(steps: Step[]): Activity[] {
 export function Chat({
   onScene,
   onCandidate,
+  onReset,
+  roster,
 }: {
   onScene: (s: Scene) => void;
   onCandidate: (c: Candidate | null) => void;
+  onReset?: () => void;
+  roster?: ReactNode;
 }) {
   const [query, setQuery] = useState(SAMPLE);
   const [steps, setSteps] = useState<Step[]>([]);
@@ -72,6 +76,7 @@ export function Chat({
     setSteps([]);
     setAnswer(null);
     setBusy(true);
+    onReset?.();
     let sceneRendered = false;
     let cand: Candidate | null = null;
     let districtKey: string | undefined;
@@ -136,6 +141,7 @@ export function Chat({
 
   return (
     <div className="chat">
+      <div className="chat-top">
       <h1>On The Money</h1>
       <p className="subtle">Ask how House campaign money flows. 2024 cycle.</p>
       <form onSubmit={submit}>
@@ -148,7 +154,10 @@ export function Chat({
           {busy ? 'Working' : 'Ask'}
         </button>
       </form>
+      {roster}
+      </div>
 
+      <div className="chat-results">
       <ol className="trace">
         {busy && acts.length === 0 && (
           <li className="trace-active">
@@ -198,6 +207,7 @@ export function Chat({
           <Citations items={answer.citations} />
         </div>
       )}
+      </div>
     </div>
   );
 }

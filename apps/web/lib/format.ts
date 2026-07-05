@@ -22,6 +22,21 @@ export function partyLabel(code?: string): string | null {
   return PARTY[code.toUpperCase()] ?? null;
 }
 
+// Conventional party colors (informational, not partisan); gray when unknown.
+const PARTY_COLOR: Record<string, string> = {
+  D: '#4a90e2', // blue
+  R: '#e2564a', // red
+  G: '#43b26a', // green
+  L: '#d99a2b', // amber (Libertarian)
+  I: '#9b6dd6', // purple (independents)
+  C: '#b0763a', // brown (Constitution)
+};
+
+export function partyColor(code?: string): string {
+  const p = partyLabel(code);
+  return (p && PARTY_COLOR[p]) || '#8b93a1';
+}
+
 const TITLES = new Set([
   'DR', 'MR', 'MRS', 'MS', 'MISS', 'HON', 'REV', 'PROF', 'SEN', 'REP', 'MAJ', 'COL', 'CAPT', 'LT', 'SGT',
 ]);

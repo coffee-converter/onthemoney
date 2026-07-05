@@ -7,7 +7,7 @@ import {
 } from '../lib/scene';
 import { placeLabels, largestRing, labelSpot } from '../lib/labels';
 import { STATE_CENTROIDS } from '../lib/stateCentroids';
-import { money, formatName, partyLabel, initials } from '../lib/format';
+import { money, formatName, partyLabel, partyColor, initials } from '../lib/format';
 import type { Scene, Candidate } from '../lib/types';
 
 const ESC: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
@@ -201,6 +201,7 @@ export function MapView({
       cont.appendChild(el);
       cardRef.current = el;
     }
+    el.style.setProperty('--party-color', partyColor(candidate.party));
     const pl = partyLabel(candidate.party);
     const party = pl ? `<span class="cand-party">${esc(pl)}</span>` : '';
     const raised = money(candidate.receipts);
