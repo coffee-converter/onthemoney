@@ -5,7 +5,9 @@ from otm_data.load import (
 )
 from otm_data.oracle import (
     resolve_candidate, committees_for_candidate, total_raised, top_donors,
+    candidate_finance, contributions_by_state,
 )
+from otm_data.load import load_candidate_totals
 
 
 def _lines(name):
@@ -62,6 +64,29 @@ def test_total_raised_excludes_memo(db_engine):
     _seed(db_engine)
     # $500 real + $1000 memo (X) -> only $500 counts
     assert total_raised(db_engine, "H2AZ06099") == Decimal("500.00")
+
+
+def test_candidate_finance(db_engine):
+    _seed(db_engine)
+    load_candidate_totals(db_engine, ["H2AZ06099|2024|1500.00|800.00"])
+    fin = candidate_finance(db_engine, "H2AZ06099")
+    assert fin is not None
+    assert fin.receipts == Decimal("1500.00")
+    assert fin.individual_total == Decimal("800.00")
+
+
+def test_candidate_finance_missing_returns_none(db_engine):
+    _seed(db_engine)
+    assert candidate_finance(db_engine, "H2AZ06099") is None
+
+
+def test_contributions_by_state(db_engine):
+    _seed(db_engine)
+    rows = contributions_by_state(db_engine, "H2AZ06099")
+    assert len(rows) == 1
+    assert rows[0].state == "AZ"
+    assert rows[0].amount == Decimal("500.00")  # memo row excluded
+    assert rows[0].count == 1
 
 
 def test_top_donors_excludes_memo_and_orders(db_engine):

@@ -32,6 +32,14 @@ class Linkage:
 
 
 @dataclass
+class CandidateTotal:
+    cand_id: str
+    cycle: int | None
+    receipts: Decimal
+    individual_total: Decimal
+
+
+@dataclass
 class Contribution:
     sub_id: str
     cmte_id: str
@@ -79,6 +87,15 @@ def parse_linkage(line: str) -> Linkage:
     return Linkage(
         cand_id=f[0], cmte_id=f[3], cmte_type=f[4], cmte_desig=f[5],
         election_yr=_int(f[2]),
+    )
+
+
+def parse_candidate_total(line: str) -> CandidateTotal:
+    # cand_id|cycle|receipts|individual_total
+    f = line.rstrip("\n").split("|")
+    return CandidateTotal(
+        cand_id=f[0], cycle=_int(f[1]),
+        receipts=Decimal(f[2] or "0"), individual_total=Decimal(f[3] or "0"),
     )
 
 

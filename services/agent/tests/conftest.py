@@ -7,7 +7,8 @@ from otm_data.load import (
     load_contributions, linked_committee_ids,
 )
 
-TABLES = ["contributions", "candidate_committee", "committees", "candidates"]
+TABLES = ["contributions", "candidate_committee", "committees", "candidates",
+          "candidate_totals"]
 
 # Standard AZ-06 seed (mirrors the data package fixtures; kept inline so the agent
 # package tests do not reach into the data package's test tree).

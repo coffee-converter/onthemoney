@@ -3,7 +3,8 @@ import pytest
 from sqlalchemy import text
 from otm_data.db import get_engine, apply_schema
 
-TABLES = ["contributions", "candidate_committee", "committees", "candidates"]
+TABLES = ["contributions", "candidate_committee", "committees", "candidates",
+          "candidate_totals"]
 
 
 @pytest.fixture()

@@ -9,6 +9,13 @@ import { Citations } from './Citations';
 
 const SAMPLE = 'Who funds the representative in IL-5?';
 
+function money(x: string | null | undefined): string | null {
+  if (!x) return null;
+  const n = parseFloat(x);
+  if (!isFinite(n)) return null;
+  return `$${Math.round(n).toLocaleString()}`;
+}
+
 function stepLabel(step: Step): string {
   if (step.type === 'tool_use') return `Calling ${step.name}`;
   if (step.type === 'tool_result') return `${step.name} returned`;
@@ -76,6 +83,22 @@ export function Chat({ onScene }: { onScene: (s: Scene) => void }) {
       {answer && (
         <div className="answer">
           <ConfidenceChip level={answer.confidence} />
+          {(money(answer.receipts) || money(answer.individual_total)) && (
+            <div className="stat-row">
+              {money(answer.receipts) && (
+                <div className="stat">
+                  <span className="stat-value">{money(answer.receipts)}</span>
+                  <span className="stat-label">total raised</span>
+                </div>
+              )}
+              {money(answer.individual_total) && (
+                <div className="stat">
+                  <span className="stat-value">{money(answer.individual_total)}</span>
+                  <span className="stat-label">from individuals</span>
+                </div>
+              )}
+            </div>
+          )}
           <div className="answer-body">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{answer.text}</ReactMarkdown>
           </div>

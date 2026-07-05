@@ -16,6 +16,8 @@ def build_answer_from_trace(engine: Engine, trace: list[dict],
     committees: list[str] = []
     scene = None
     total_from_tool = None
+    receipts = None
+    individual_total = None
 
     for step in trace:
         if step["type"] == "tool_use" and step["name"] == "resolve_entity":
@@ -27,6 +29,8 @@ def build_answer_from_trace(engine: Engine, trace: list[dict],
                 committees = payload.get("committees", [])
             if step["name"] == "funding_summary" and "total" in payload:
                 total_from_tool = payload.get("total")
+                receipts = payload.get("receipts")
+                individual_total = payload.get("individual_total")
             if step["name"] == "emit_scene" and "highlight" in payload:
                 scene = payload
 
@@ -45,4 +49,5 @@ def build_answer_from_trace(engine: Engine, trace: list[dict],
     citations = [asdict(Citation(label=c, url=fec_committee_url(c)))
                  for c in committees]
     return {"text": final_text, "confidence": confidence, "total": total,
+            "receipts": receipts, "individual_total": individual_total,
             "citations": citations, "scene": scene}

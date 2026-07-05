@@ -4,7 +4,7 @@ from sqlalchemy import Engine
 from otm_data.db import get_engine, apply_schema
 from otm_data.load import (
     load_candidates, load_committees, load_linkages,
-    load_contributions, linked_committee_ids,
+    load_contributions, linked_committee_ids, load_candidate_totals,
 )
 
 
@@ -21,8 +21,11 @@ def run_ingest(engine: Engine, *, data_dir: Path, cycle: int = 2024) -> dict[str
         engine, _lines(data_dir / "itcont.txt"),
         cmte_ids=linked_committee_ids(engine, election_yr=cycle),
     )
+    totals_file = data_dir / "totals.txt"
+    totals = (load_candidate_totals(engine, _lines(totals_file))
+              if totals_file.exists() else 0)
     return {"candidates": cands, "committees": cmtes,
-            "linkages": links, "contributions": contribs}
+            "linkages": links, "contributions": contribs, "totals": totals}
 
 
 def main() -> None:

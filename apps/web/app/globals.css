@@ -141,6 +141,34 @@ button:disabled {
   background: var(--bg);
 }
 
+.stat-row {
+  display: flex;
+  gap: 0.75rem;
+  margin: 0.7rem 0;
+  flex-wrap: wrap;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.stat-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.stat-label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .answer-body p {
   margin: 0.4rem 0;
 }

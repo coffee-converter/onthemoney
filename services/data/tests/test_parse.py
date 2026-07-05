@@ -2,6 +2,7 @@ from decimal import Decimal
 from datetime import date
 from otm_data.parse import (
     parse_candidate, parse_committee, parse_linkage, parse_contribution,
+    parse_candidate_total,
 )
 
 
@@ -44,6 +45,14 @@ def test_parse_contribution_individual():
     assert row.transaction_dt == date(2024, 6, 15)
     assert row.memo_cd == ""
     assert row.sub_id == "SUBA"
+
+
+def test_parse_candidate_total():
+    ct = parse_candidate_total("H2AZ06099|2024|1093681.39|363190.52")
+    assert ct.cand_id == "H2AZ06099"
+    assert ct.cycle == 2024
+    assert ct.receipts == Decimal("1093681.39")
+    assert ct.individual_total == Decimal("363190.52")
 
 
 def test_parse_contribution_memo_flag():

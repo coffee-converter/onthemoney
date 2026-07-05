@@ -5,6 +5,7 @@ from otm_agent.tools import resolve_entity, funding_summary
 from otm_agent.geo import district_centroid
 from otm_agent.scene import build_scene
 from otm_agent.config import get_settings
+from otm_data.oracle import contributions_by_state
 
 
 @dataclass
@@ -27,7 +28,9 @@ def _resolve_entity(engine: Engine, args: dict) -> dict:
 def _funding_summary(engine: Engine, args: dict) -> dict:
     fs = funding_summary(engine, args["cand_id"], cycle=int(args.get("cycle", 2024)),
                          top_n=int(args.get("top_n", get_settings().top_n)))
-    return {"total": fs.total, "donors": [asdict(d) for d in fs.donors]}
+    return {"total": fs.total, "receipts": fs.receipts,
+            "individual_total": fs.individual_total,
+            "donors": [asdict(d) for d in fs.donors]}
 
 
 def _emit_scene(engine: Engine, args: dict) -> dict:
@@ -36,9 +39,9 @@ def _emit_scene(engine: Engine, args: dict) -> dict:
     centroid = district_centroid(state, district)
     if res is None or centroid is None:
         return {"insufficient": True}
-    fs = funding_summary(engine, res.candidate.cand_id)
+    by_state = contributions_by_state(engine, res.candidate.cand_id)
     return build_scene(state=state, district=district, centroid=centroid,
-                       donors=fs.donors)
+                       state_flows=by_state)
 
 
 _STATE_DISTRICT = {

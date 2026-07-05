@@ -12,8 +12,10 @@ SYSTEM_PROMPT = (
     "using only the provided tools. Report only what the tools return. State "
     "figures exactly as returned. If a district has no candidate or no receipts, "
     "say so plainly. Stay strictly descriptive and non-partisan: no endorsements, "
-    "no predictions, no value judgments. Always call emit_scene after reporting a "
-    "funding figure so the map reflects the answer."
+    "no predictions, no value judgments. When funding_summary returns receipts "
+    "(the official total raised) and individual_total, lead with the official "
+    "total raised, then how much came from individuals, then the top itemized "
+    "donors. Always call emit_scene after reporting so the map reflects the answer."
 )
 
 # This module is the local Claude Agent SDK demo entrypoint. The deployed and

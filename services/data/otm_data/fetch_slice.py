@@ -75,6 +75,9 @@ class FecApiClient:
             "per_page": min(limit, 100),
         })
 
+    def candidate_totals(self, candidate_id: str, cycle: int) -> list[dict]:
+        return self._get(f"/candidate/{candidate_id}/totals/", {"cycle": cycle})
+
 
 def _join(fields: list) -> str:
     # FEC API values can be null; render None as an empty field.
@@ -125,6 +128,15 @@ def linkage_line(candidate_id: str, committee_id: str, cycle: int) -> str:
     return _join(f)
 
 
+def candidate_total_line(candidate_id: str, cycle: int, totals: dict) -> str:
+    f = [""] * 4
+    f[0] = candidate_id
+    f[1] = str(cycle)
+    f[2] = str(totals.get("receipts") or 0)
+    f[3] = str(totals.get("individual_contributions") or 0)
+    return _join(f)
+
+
 def contribution_line(contrib: dict, committee_id: str) -> str:
     f = [""] * 21
     f[0] = committee_id
@@ -160,6 +172,7 @@ def build_slice(client, districts, *, cycle: int = 2024,
     cm: list[str] = []
     ccl: list[str] = []
     itcont: list[str] = []
+    totals: list[str] = []
     for state, district in districts:
         for cand in _safe(lambda: client.candidates(state, district, cycle),
                           f"{state}-{district} candidates"):
@@ -168,6 +181,10 @@ def build_slice(client, districts, *, cycle: int = 2024,
                           f"committees for {cand_id}")
             pcc = cmtes[0].get("committee_id", "") if cmtes else ""
             cn.append(candidate_line(cand, cycle, pcc))
+            ct = _safe(lambda: client.candidate_totals(cand_id, cycle),
+                       f"totals for {cand_id}")
+            if ct:
+                totals.append(candidate_total_line(cand_id, cycle, ct[0]))
             for cmte in cmtes:
                 cid = cmte.get("committee_id", "")
                 cm.append(committee_line(cmte, cand_id))
@@ -175,7 +192,7 @@ def build_slice(client, districts, *, cycle: int = 2024,
                 for contrib in _safe(lambda: client.schedule_a(cid, cycle, per_committee),
                                      f"contributions for {cid}"):
                     itcont.append(contribution_line(contrib, cid))
-    return {"cn": cn, "cm": cm, "ccl": ccl, "itcont": itcont}
+    return {"cn": cn, "cm": cm, "ccl": ccl, "itcont": itcont, "totals": totals}
 
 
 def write_slice(lines: dict[str, list[str]], out_dir: Path) -> None:

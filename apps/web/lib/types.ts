@@ -6,10 +6,9 @@ export interface Citation {
 }
 
 export interface Flow {
-  label: string;
-  employer: string;
-  amount: string;
-  state?: string;
+  state: string;
+  total: string;
+  count: number;
 }
 
 export interface Scene {
@@ -22,6 +21,8 @@ export interface Answer {
   text: string;
   confidence: Confidence;
   total: string | null;
+  receipts?: string | null;
+  individual_total?: string | null;
   citations: Citation[];
   scene: Scene | null;
 }

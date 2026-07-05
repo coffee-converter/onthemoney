@@ -39,6 +39,14 @@ CREATE TABLE IF NOT EXISTS contributions (
     memo_cd       TEXT
 );
 
+CREATE TABLE IF NOT EXISTS candidate_totals (
+    cand_id          TEXT NOT NULL,
+    cycle            INTEGER NOT NULL,
+    receipts         NUMERIC(16,2),   -- official total raised (all sources)
+    individual_total NUMERIC(16,2),   -- official individual contributions
+    PRIMARY KEY (cand_id, cycle)
+);
+
 CREATE INDEX IF NOT EXISTS idx_contrib_cmte ON contributions (cmte_id);
 CREATE INDEX IF NOT EXISTS idx_candcmte_cand ON candidate_committee (cand_id);
 CREATE INDEX IF NOT EXISTS idx_cand_office ON candidates (office, office_state, district, election_yr);

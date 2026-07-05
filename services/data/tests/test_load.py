@@ -1,7 +1,7 @@
 from sqlalchemy import text
 from otm_data.load import (
     load_candidates, load_committees, load_linkages,
-    load_contributions, linked_committee_ids,
+    load_contributions, linked_committee_ids, load_candidate_totals,
 )
 
 
@@ -33,6 +33,18 @@ def test_load_pipeline_and_contribution_filter(db_engine):
     with db_engine.connect() as conn:
         total = conn.execute(text("SELECT COUNT(*) FROM contributions")).scalar()
     assert total == 2
+
+
+def test_load_candidate_totals(db_engine):
+    n = load_candidate_totals(db_engine, ["H2AZ06099|2024|1500.00|800.00"])
+    assert n == 1
+    with db_engine.connect() as conn:
+        r = conn.execute(text(
+            "SELECT receipts, individual_total FROM candidate_totals "
+            "WHERE cand_id = 'H2AZ06099'"
+        )).first()
+    assert str(r[0]) == "1500.00"
+    assert str(r[1]) == "800.00"
 
 
 def test_load_contributions_excludes_unlinked_committees(db_engine):

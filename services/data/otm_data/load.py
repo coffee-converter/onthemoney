@@ -2,6 +2,7 @@ from typing import Iterable
 from sqlalchemy import Engine, text
 from otm_data.parse import (
     parse_candidate, parse_committee, parse_linkage, parse_contribution,
+    parse_candidate_total,
 )
 
 
@@ -41,6 +42,19 @@ def load_linkages(engine: Engine, lines: Iterable[str], *, election_yr: int = 20
         "(cand_id, cmte_id, cmte_type, cmte_desig, election_yr) "
         "VALUES (:cand_id,:cmte_id,:cmte_type,:cmte_desig,:election_yr) "
         "ON CONFLICT (cand_id, cmte_id, election_yr) DO NOTHING"
+    )
+    with engine.begin() as conn:
+        for r in rows:
+            conn.execute(stmt, r.__dict__)
+    return len(rows)
+
+
+def load_candidate_totals(engine: Engine, lines: Iterable[str]) -> int:
+    rows = [parse_candidate_total(l) for l in lines if l.strip()]
+    stmt = text(
+        "INSERT INTO candidate_totals (cand_id, cycle, receipts, individual_total) "
+        "VALUES (:cand_id,:cycle,:receipts,:individual_total) "
+        "ON CONFLICT (cand_id, cycle) DO NOTHING"
     )
     with engine.begin() as conn:
         for r in rows:

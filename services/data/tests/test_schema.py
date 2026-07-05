@@ -7,4 +7,5 @@ def test_schema_creates_all_tables(db_engine):
             "SELECT table_name FROM information_schema.tables "
             "WHERE table_schema = 'public'"
         )).scalars().all()
-    assert {"candidates", "committees", "candidate_committee", "contributions"} <= set(rows)
+    assert {"candidates", "committees", "candidate_committee", "contributions",
+            "candidate_totals"} <= set(rows)

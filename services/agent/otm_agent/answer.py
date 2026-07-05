@@ -4,6 +4,7 @@ from sqlalchemy import Engine
 from otm_agent.tools import resolve_entity, funding_summary
 from otm_agent.geo import district_centroid
 from otm_agent.scene import build_scene
+from otm_data.oracle import contributions_by_state
 
 
 class Confidence(str, Enum):
@@ -44,8 +45,9 @@ def compose_answer(engine: Engine, *, state: str, district: str,
 
     fs = funding_summary(engine, res.candidate.cand_id, cycle=cycle, top_n=top_n)
     centroid = district_centroid(state, district)
+    by_state = contributions_by_state(engine, res.candidate.cand_id, election_yr=cycle)
     scene = (build_scene(state=state, district=district, centroid=centroid,
-                         donors=fs.donors) if centroid else None)
+                         state_flows=by_state) if centroid else None)
     citations = [Citation(label=cid, url=fec_committee_url(cid))
                  for cid in res.committees]
 

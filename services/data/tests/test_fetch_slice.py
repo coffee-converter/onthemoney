@@ -15,6 +15,9 @@ class FakeClient:
     def committees(self, candidate_id, cycle):
         return [{"committee_id": "C00770886", "name": "CISCOMANI FOR CONGRESS"}]
 
+    def candidate_totals(self, candidate_id, cycle):
+        return [{"receipts": 1500.0, "individual_contributions": 500.0}]
+
     def schedule_a(self, committee_id, cycle, limit):
         return [
             {"contributor_name": "DOE, JOHN", "contributor_city": "TUCSON",
@@ -31,6 +34,7 @@ def test_build_slice_counts():
     assert len(slice_["cm"]) == 1
     assert len(slice_["ccl"]) == 1
     assert len(slice_["itcont"]) == 1
+    assert len(slice_["totals"]) == 1
 
 
 def test_emitted_lines_parse_correctly():

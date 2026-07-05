@@ -10,16 +10,20 @@ def system_output_from_live(engine, item: GoldenItem, client) -> SystemOutput:
 
     committees: list[str] = []
     scene = None
+    total_from_tool = None
     for step in result.trace:
         if step["type"] != "tool_result":
             continue
         payload = step["payload"]
         if step["name"] == "resolve_entity" and payload.get("found"):
             committees = payload.get("committees", [])
+        if step["name"] == "funding_summary" and "total" in payload:
+            total_from_tool = payload.get("total")
         if step["name"] == "emit_scene" and "highlight" in payload:
             scene = payload
 
-    claimed = parse_claimed_total(result.final_text)
+    claimed = (total_from_tool if total_from_tool is not None
+               else parse_claimed_total(result.final_text))
     verdict = supervise(engine, state=item.state, district=item.district,
                         claimed_total=claimed)
     total = claimed if verdict.verified else None

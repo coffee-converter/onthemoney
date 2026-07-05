@@ -7,7 +7,8 @@ from otm_data.load import (
     load_contributions, linked_committee_ids,
 )
 
-TABLES = ["contributions", "candidate_committee", "committees", "candidates"]
+TABLES = ["contributions", "candidate_committee", "committees", "candidates",
+          "candidate_totals"]
 
 CN = ["H2AZ06099|CISCOMANI, JUAN|REP|2024|AZ|H|06|I|C|C00770886|123 MAIN ST||TUCSON|AZ|85701"]
 CM = ["C00770886|CISCOMANI FOR CONGRESS|SMITH, JANE|PO BOX 1||TUCSON|AZ|85701|P|H|REP|Q|||H2AZ06099"]
