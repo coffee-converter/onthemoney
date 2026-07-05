@@ -34,7 +34,9 @@ SYSTEM_PROMPT = (
     "most, as a heat map' (give the text ranking, then call map_state for the map).\n"
     "- map_nation(shape): the whole country at once - 'regions' shades every district "
     "by its state's total (a nationwide state heat map) or 'points' bubbles per state. "
-    "Use for 'all states', 'nationwide', or 'which states raise the most'.\n"
+    "Use for 'all states', 'nationwide', or 'which states raise the most' - including "
+    "normalized ones like 'per district': its result includes a per-state summary "
+    "(total, district count, per_district average) you rank and read from directly.\n"
     "- render_map(points and/or regions, title): a custom map you compose for cases "
     "map_state does not cover. Use "
     "'points' for sized/colored markers, or 'regions' for a choropleth that shades "
@@ -51,7 +53,9 @@ SYSTEM_PROMPT = (
     "takeaway, and pick the fitting map view. When you use render_map, every point's "
     "place and value must come from tool results - never invent coordinates or "
     "numbers.\n"
-    "If a district has no candidate or receipts, say so plainly."
+    "If a district has no candidate or receipts, say so plainly. Always gather with "
+    "at least one tool and write a brief answer - never reply with no tool call or "
+    "empty text."
 )
 
 
