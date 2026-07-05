@@ -36,7 +36,7 @@ class FecApiClient:
         self._key = api_key
         self._base = base
 
-    def _get(self, path: str, params: dict) -> list[dict]:
+    def _request(self, path: str, params: dict) -> dict:
         params = {**params, "api_key": self._key}
         url = f"{self._base}{path}?{urllib.parse.urlencode(params)}"
         last: Exception | None = None
@@ -44,7 +44,7 @@ class FecApiClient:
         for attempt in range(4):
             try:
                 with urllib.request.urlopen(url, timeout=60) as resp:
-                    return json.loads(resp.read()).get("results", [])
+                    return json.loads(resp.read())
             except urllib.error.HTTPError as err:
                 if err.code == 429 and attempt < 3:  # rate limited: back off
                     time.sleep(delay)
@@ -55,6 +55,9 @@ class FecApiClient:
             except TimeoutError as err:  # Schedule A can be slow
                 last = err
         raise last  # type: ignore[misc]
+
+    def _get(self, path: str, params: dict) -> list[dict]:
+        return self._request(path, params).get("results", [])
 
     def candidates(self, state: str, district: str, cycle: int) -> list[dict]:
         return self._get("/candidates/", {
@@ -68,12 +71,31 @@ class FecApiClient:
         })
 
     def schedule_a(self, committee_id: str, cycle: int, limit: int) -> list[dict]:
-        return self._get("/schedules/schedule_a/", {
-            "committee_id": committee_id,
-            "two_year_transaction_period": cycle,
-            "is_individual": "true",
-            "per_page": min(limit, 100),
-        })
+        # The API returns at most 100 rows per page; seek-paginate (by last
+        # index + amount) to pull up to `limit` itemized receipts.
+        out: list[dict] = []
+        last: dict | None = None
+        while len(out) < limit:
+            params = {
+                "committee_id": committee_id,
+                "two_year_transaction_period": cycle,
+                "is_individual": "true",
+                "per_page": 100,
+                "sort": "-contribution_receipt_amount",
+            }
+            if last:
+                params["last_index"] = last.get("last_index")
+                params["last_contribution_receipt_amount"] = \
+                    last.get("last_contribution_receipt_amount")
+            body = self._request("/schedules/schedule_a/", params)
+            results = body.get("results", [])
+            if not results:
+                break
+            out.extend(results)
+            last = (body.get("pagination") or {}).get("last_indexes")
+            if not last:
+                break
+        return out[:limit]
 
     def candidate_totals(self, candidate_id: str, cycle: int) -> list[dict]:
         return self._get(f"/candidate/{candidate_id}/totals/", {"cycle": cycle})

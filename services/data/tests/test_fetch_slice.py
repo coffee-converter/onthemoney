@@ -1,5 +1,5 @@
 from decimal import Decimal
-from otm_data.fetch_slice import build_slice, write_slice, parse_districts
+from otm_data.fetch_slice import build_slice, write_slice, parse_districts, FecApiClient
 from otm_data.parse import (
     parse_candidate, parse_committee, parse_linkage, parse_contribution,
 )
@@ -88,6 +88,22 @@ def test_null_contribution_fields_do_not_crash():
 
 def test_parse_districts():
     assert parse_districts(["IL-05", "az-06"]) == [("IL", "05"), ("AZ", "06")]
+
+
+def test_schedule_a_seek_paginates(monkeypatch):
+    client = FecApiClient("key")
+    pages = iter([
+        {"results": [{"n": i} for i in range(100)],
+         "pagination": {"last_indexes": {"last_index": "1",
+                                         "last_contribution_receipt_amount": "9"}}},
+        {"results": [{"n": i} for i in range(100)],
+         "pagination": {"last_indexes": {"last_index": "2",
+                                         "last_contribution_receipt_amount": "8"}}},
+        {"results": [], "pagination": {"last_indexes": None}},
+    ])
+    monkeypatch.setattr(client, "_request", lambda path, params: next(pages))
+    rows = client.schedule_a("C0", 2024, 150)
+    assert len(rows) == 150  # two pages of 100, capped at the limit
 
 
 def test_write_slice_creates_bulk_files(tmp_path):
