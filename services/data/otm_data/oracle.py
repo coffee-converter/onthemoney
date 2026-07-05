@@ -167,6 +167,30 @@ def state_field(engine: Engine, state: str, *,
 
 
 @dataclass
+class StateFunding:
+    state: str
+    total: Decimal
+
+
+def state_totals(engine: Engine, *, election_yr: int = 2024) -> list[StateFunding]:
+    # Total itemized individual receipts across every House candidate, summed by
+    # state - the data behind a nationwide funding heat map.
+    with engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT c.office_state AS state, COALESCE(SUM(ct.amount), 0) AS total "
+            "FROM candidates c "
+            "  LEFT JOIN candidate_committee cc "
+            "    ON cc.cand_id = c.cand_id AND cc.election_yr = c.election_yr "
+            "  LEFT JOIN contributions ct "
+            "    ON ct.cmte_id = cc.cmte_id AND COALESCE(ct.memo_cd, '') <> 'X' "
+            "WHERE c.office = 'H' AND c.election_yr = :yr "
+            "GROUP BY c.office_state "
+            "ORDER BY total DESC"
+        ), {"yr": election_yr}).all()
+    return [StateFunding(state=r[0], total=Decimal(r[1])) for r in rows]
+
+
+@dataclass
 class EmployerTotal:
     employer: str
     amount: Decimal

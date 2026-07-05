@@ -2,11 +2,12 @@ from dataclasses import asdict, dataclass
 from typing import Callable
 from sqlalchemy import Engine
 from otm_agent.tools import resolve_entity, funding_summary
-from otm_agent.geo import district_centroid, resolve_place
+from otm_agent.geo import district_centroid, resolve_place, all_district_keys
 from otm_agent.scene import build_scene
 from otm_agent.config import get_settings
 from otm_data.oracle import (
     contributions_by_state, industry_breakdown, top_employers, state_field,
+    state_totals,
 )
 
 
@@ -163,6 +164,26 @@ def _map_state(engine: Engine, args: dict) -> dict:
     return _render_map(engine, {field: items, "title": f"{state} House districts"})
 
 
+def _map_nation(engine: Engine, args: dict) -> dict:
+    # Nationwide funding map. 'regions' colors every district by its state's
+    # total (a state-level choropleth built from district polygons); 'points'
+    # drops one bubble per state at its centroid.
+    shape = "points" if args.get("shape") == "points" else "regions"
+    totals = {t.state: float(t.total) for t in state_totals(engine)}
+    if shape == "points":
+        items = [{"place": st, "value": total,
+                  "tooltip": [st, f"${total:,.0f} raised statewide"]}
+                 for st, total in sorted(totals.items(), key=lambda kv: -kv[1])]
+        return _render_map(engine, {"points": items, "title": "House funding by state"})
+    regions = []
+    for key in all_district_keys():
+        st = key.split("-")[0]
+        total = totals.get(st, 0.0)
+        regions.append({"place": key, "value": total,
+                        "tooltip": [st, f"${total:,.0f} raised statewide"]})
+    return _render_map(engine, {"regions": regions, "title": "House funding by state"})
+
+
 def _emit_scene(engine: Engine, args: dict) -> dict:
     state, district = args["state"], args["district"]
     res = resolve_entity(engine, state=state, district=district)
@@ -309,6 +330,22 @@ _SPECS = [
             "required": ["state"],
         },
         handler=_map_state,
+    ),
+    ToolSpec(
+        name="map_nation",
+        description="Map the whole country's House funding at once. 'regions' "
+                    "(default) shades every district by its state's total raised - a "
+                    "nationwide state-level heat map; 'points' drops one bubble per "
+                    "state. Use for 'all states', 'nationwide', 'which states raise "
+                    "the most' questions. Totals are summed server-side.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "shape": {"type": "string", "enum": ["regions", "points"],
+                          "description": "State heat map (regions) or per-state bubbles"},
+            },
+        },
+        handler=_map_nation,
     ),
     ToolSpec(
         name="emit_scene",

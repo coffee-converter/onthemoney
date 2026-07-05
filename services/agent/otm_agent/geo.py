@@ -12,6 +12,12 @@ def district_centroid(state: str, district: str) -> tuple[float, float] | None:
     return (coords[0], coords[1])
 
 
+def all_district_keys() -> list[str]:
+    """Every district id ('XX-DD') with a known boundary - the extent of a
+    nationwide map."""
+    return list(_TABLE.keys())
+
+
 def _state_centroids() -> dict[str, tuple[float, float]]:
     acc: dict[str, list[tuple[float, float]]] = {}
     for key, (lng, lat) in _TABLE.items():
