@@ -96,7 +96,8 @@ export function MapView({ scene }: { scene: Scene | null }) {
       const placements = placeLabels(
         labels.map((l) => ({ state: l.state, origin: l.origin, amount: l.amount })),
         hubPt,
-        (ll) => map.project(ll),
+        hub,
+        (ll: [number, number]) => map.project(ll),
         W,
         H,
       );
@@ -118,8 +119,8 @@ export function MapView({ scene }: { scene: Scene | null }) {
       const edge = map.project([d.spot[0], d.spot[1] + d.r]);
       const rpx = Math.hypot(edge.x - c.x, edge.y - c.y);
       // Fit the text WIDTH inside the inscribed diameter (with margin) so it
-      // never spills past the district's largest open area.
-      const targetW = 2 * rpx * 0.8;
+      // never touches the district border.
+      const targetW = 2 * rpx * 0.62;
       const size = Math.max(14, Math.min(targetW / d.ratio, 300));
       d.el.style.transform = `translate(${c.x}px, ${c.y}px) translate(-50%, -50%)`;
       d.el.style.fontSize = `${size}px`;
@@ -294,8 +295,9 @@ export function MapView({ scene }: { scene: Scene | null }) {
             );
           }
 
-          // District-code watermark, placed in the largest open area.
-          const spot = labelSpot(largestRing(feature.geometry));
+          // District-code watermark, placed in the largest open area. A finer
+          // grid gives a better-centered pole of inaccessibility.
+          const spot = labelSpot(largestRing(feature.geometry), 90);
           if (overlay.current) {
             let el = districtRef.current?.el;
             if (!el) {

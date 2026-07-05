@@ -161,56 +161,52 @@ export function labelSpot(ring: LngLat[], n = 40): { x: number; y: number; r: nu
   return best;
 }
 
-// When crowded, shrink the along-beam distance toward the hub to dodge
-// neighbors before giving up on a label.
-const SHRINK = [1, 0.8, 0.62, 0.46, 0.32];
-const MARGIN = 26; // keep the label off the viewport edge
-const SPREAD = 0.9; // fraction of the full beam length to aim for
+const NEAR = 46; // keep labels off the hub
+const MARGIN = 26; // keep labels off the viewport edge
 
+// Position along each visible beam is a monotonic function of the state's real
+// distance, so a closer state's label is never farther out than a farther one.
 export function placeLabels(
   labels: LabelInput[],
   hub: Pt,
+  hubLngLat: [number, number],
   project: (lnglat: [number, number]) => Pt,
   width: number,
   height: number,
   pad = 22,
 ): Placement[] {
   const rect: Rect = { xmin: pad, ymin: pad, xmax: width - pad, ymax: height - pad };
+  // Real (geographic) distance drives placement; swap this for a distance-rank
+  // fraction here if even spacing is ever preferred over true magnitude.
+  const withDist = labels.map((L) => ({
+    L,
+    s: project(L.origin),
+    dist: Math.hypot(L.origin[0] - hubLngLat[0], L.origin[1] - hubLngLat[1]),
+  }));
+  const maxD = Math.max(1e-6, ...withDist.map((e) => e.dist));
   const placed: Box[] = [];
-  // Biggest dollars first so the most important labels claim space.
-  const order = [...labels].sort((a, b) => b.amount - a.amount);
+  // Biggest dollars first so that when two would overlap, the important one wins
+  // its (distance-correct) spot and the other is hidden - never reordered.
+  const order = [...withDist].sort((a, b) => b.L.amount - a.L.amount);
   const out: Placement[] = [];
-  for (const L of order) {
-    const s = project(L.origin);
-    const dx = s.x - hub.x;
-    const dy = s.y - hub.y;
-    const beamLen = Math.hypot(dx, dy) || 1;
-    const ux = dx / beamLen;
-    const uy = dy / beamLen;
-    const seg = clipSegment(hub, s, rect);
-    let placement: Placement = { state: L.state, x: 0, y: 0, visible: false };
+  for (const e of order) {
+    const seg = clipSegment(hub, e.s, rect);
+    let placement: Placement = { state: e.L.state, x: 0, y: 0, visible: false };
     if (seg) {
-      // Visible span of the beam, measured as distance from the hub.
       const dA = Math.hypot(seg.ax - hub.x, seg.ay - hub.y);
       const dB = Math.hypot(seg.bx - hub.x, seg.by - hub.y);
-      // Distance along the beam scaled by its length (near states pull in,
-      // far states push out), clamped inside the visible span.
-      const base =
-        dB - dA < 2 * MARGIN
-          ? (dA + dB) / 2
-          : Math.min(Math.max(beamLen * SPREAD, dA + MARGIN), dB - MARGIN);
-      const w = L.state.length * 8 + 12;
+      const lo = Math.min(dA + NEAR, dB);
+      const hi = Math.max(dB - MARGIN, lo);
+      const d = lo + (e.dist / maxD) * (hi - lo); // closest -> lo, farthest -> hi
+      const beamLen = Math.hypot(e.s.x - hub.x, e.s.y - hub.y) || 1;
+      const x = hub.x + ((e.s.x - hub.x) / beamLen) * d;
+      const y = hub.y + ((e.s.y - hub.y) / beamLen) * d;
+      const w = e.L.state.length * 8 + 12;
       const h = 18;
-      for (const factor of SHRINK) {
-        const d = Math.min(Math.max(base * factor, dA), dB);
-        const x = hub.x + ux * d;
-        const y = hub.y + uy * d;
-        const box: Box = { x0: x - w / 2, y0: y - h / 2, x1: x + w / 2, y1: y + h / 2 };
-        if (!placed.some((p) => overlaps(p, box))) {
-          placed.push(box);
-          placement = { state: L.state, x, y, visible: true };
-          break;
-        }
+      const box: Box = { x0: x - w / 2, y0: y - h / 2, x1: x + w / 2, y1: y + h / 2 };
+      if (!placed.some((p) => overlaps(p, box))) {
+        placed.push(box);
+        placement = { state: e.L.state, x, y, visible: true };
       }
     }
     out.push(placement);

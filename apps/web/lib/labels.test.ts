@@ -33,18 +33,31 @@ const project = (p: [number, number]): Pt => ({ x: p[0], y: p[1] });
 describe('placeLabels', () => {
   it('places a visible label on an on-screen beam', () => {
     const labels: LabelInput[] = [{ state: 'CA', origin: [20, 20], amount: 100 }];
-    const [p] = placeLabels(labels, { x: 90, y: 90 }, project, 100, 100, 0);
+    const [p] = placeLabels(labels, { x: 90, y: 90 }, [90, 90], project, 100, 100, 0);
     expect(p.visible).toBe(true);
     expect(p.x).toBeGreaterThan(0);
   });
 
-  it('hides the lower-dollar label when two crowd a short beam', () => {
-    // A short beam leaves no room to slide the second label clear.
+  it('orders labels by distance: a closer state sits nearer the hub', () => {
+    // Same bearing, different distances -> nearer state's label is closer in.
+    const labels: LabelInput[] = [
+      { state: 'NEAR', origin: [60, 60], amount: 100 },
+      { state: 'FAR', origin: [10, 10], amount: 100 },
+    ];
+    const res = placeLabels(labels, { x: 95, y: 95 }, [95, 95], project, 100, 100, 0);
+    const near = res.find((r) => r.state === 'NEAR')!;
+    const far = res.find((r) => r.state === 'FAR')!;
+    const dNear = Math.hypot(near.x - 95, near.y - 95);
+    const dFar = Math.hypot(far.x - 95, far.y - 95);
+    expect(dNear).toBeLessThan(dFar);
+  });
+
+  it('hides the lower-dollar label when two crowd the same spot', () => {
     const labels: LabelInput[] = [
       { state: 'CA', origin: [20, 20], amount: 100 },
       { state: 'NY', origin: [20, 20], amount: 10 },
     ];
-    const res = placeLabels(labels, { x: 24, y: 24 }, project, 100, 100, 0);
+    const res = placeLabels(labels, { x: 24, y: 24 }, [24, 24], project, 100, 100, 0);
     const ca = res.find((r) => r.state === 'CA')!;
     const ny = res.find((r) => r.state === 'NY')!;
     expect(ca.visible).toBe(true); // bigger dollars win
@@ -53,7 +66,7 @@ describe('placeLabels', () => {
 
   it('hides a label whose beam is entirely off screen', () => {
     const labels: LabelInput[] = [{ state: 'TX', origin: [300, 300], amount: 100 }];
-    const [p] = placeLabels(labels, { x: 200, y: 200 }, project, 100, 100, 0);
+    const [p] = placeLabels(labels, { x: 200, y: 200 }, [200, 200], project, 100, 100, 0);
     expect(p.visible).toBe(false);
   });
 });
