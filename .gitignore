@@ -31,3 +31,6 @@ docs/
 .DS_Store
 .cache/
 *.log
+
+# Local dev server logs
+.devlogs/

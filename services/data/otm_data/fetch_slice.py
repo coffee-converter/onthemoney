@@ -8,6 +8,7 @@ key at https://api.data.gov/signup/ and pass it via `--api-key` or `FEC_API_KEY`
 import argparse
 import json
 import os
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -148,8 +149,19 @@ def main() -> None:
     args = ap.parse_args()
 
     client = FecApiClient(args.api_key)
-    lines = build_slice(client, DEFAULT_DISTRICTS, cycle=args.cycle,
-                        per_committee=args.per_committee)
+    try:
+        lines = build_slice(client, DEFAULT_DISTRICTS, cycle=args.cycle,
+                            per_committee=args.per_committee)
+    except urllib.error.HTTPError as err:
+        if err.code == 429:
+            raise SystemExit(
+                "FEC API rate limit hit (HTTP 429). The demo key is heavily "
+                "throttled; get a free key at https://api.data.gov/signup/ and "
+                "pass it as FEC_API_KEY, or wait a minute and retry."
+            )
+        raise SystemExit(f"FEC API error: HTTP {err.code} {err.reason}")
+    except urllib.error.URLError as err:
+        raise SystemExit(f"Could not reach the FEC API: {err.reason}")
     write_slice(lines, args.out_dir)
     for name, rows in lines.items():
         print(f"{name}: {len(rows)}")
