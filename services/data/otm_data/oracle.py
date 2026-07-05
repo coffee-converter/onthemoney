@@ -21,11 +21,23 @@ class DonorTotal:
 
 def resolve_candidate(engine: Engine, *, state: str, district: str,
                       election_yr: int = 2024) -> CandidateRef | None:
+    # A district can have many candidates; resolve to the one with the most
+    # itemized individual receipts on file (memo transactions excluded), so
+    # "the representative" lands on the leading candidate rather than an
+    # arbitrary minor filer.
     with engine.connect() as conn:
         row = conn.execute(text(
-            "SELECT cand_id, name, party, office_state, district FROM candidates "
-            "WHERE office = 'H' AND office_state = :state AND district = :district "
-            "AND election_yr = :yr LIMIT 1"
+            "SELECT c.cand_id, c.name, c.party, c.office_state, c.district "
+            "FROM candidates c "
+            "LEFT JOIN candidate_committee cc "
+            "  ON cc.cand_id = c.cand_id AND cc.election_yr = c.election_yr "
+            "LEFT JOIN contributions ct "
+            "  ON ct.cmte_id = cc.cmte_id AND COALESCE(ct.memo_cd, '') <> 'X' "
+            "WHERE c.office = 'H' AND c.office_state = :state "
+            "  AND c.district = :district AND c.election_yr = :yr "
+            "GROUP BY c.cand_id, c.name, c.party, c.office_state, c.district "
+            "ORDER BY COALESCE(SUM(ct.amount), 0) DESC, c.cand_id "
+            "LIMIT 1"
         ), {"state": state, "district": district, "yr": election_yr}).first()
     return CandidateRef(*row) if row else None
 
