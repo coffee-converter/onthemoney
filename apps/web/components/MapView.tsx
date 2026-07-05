@@ -7,7 +7,19 @@ import {
 } from '../lib/scene';
 import { placeLabels, largestRing, labelSpot } from '../lib/labels';
 import { STATE_CENTROIDS } from '../lib/stateCentroids';
-import type { Scene } from '../lib/types';
+import type { Scene, Candidate } from '../lib/types';
+
+function money(x: string | null | undefined): string | null {
+  if (!x) return null;
+  const n = parseFloat(x);
+  if (!Number.isFinite(n)) return null;
+  return `$${Math.round(n).toLocaleString()}`;
+}
+
+const ESC: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
+function esc(s: string): string {
+  return s.replace(/[&<>"]/g, (c) => ESC[c]);
+}
 
 // CARTO dark basemap (free, no API key). A muted dark canvas so the money
 // flows and district glow on top.
@@ -61,8 +73,15 @@ interface District {
   el: HTMLDivElement;
 }
 
-export function MapView({ scene }: { scene: Scene | null }) {
+export function MapView({
+  scene,
+  candidate,
+}: {
+  scene: Scene | null;
+  candidate: Candidate | null;
+}) {
   const container = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const overlay = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
@@ -132,7 +151,48 @@ export function MapView({ scene }: { scene: Scene | null }) {
       d.el.style.fontSize = `${size}px`;
       d.el.style.opacity = rpx > 26 ? '1' : '0'; // hide when the district is tiny on screen
     }
+
+    const card = cardRef.current;
+    if (card && card.dataset.show === '1' && hubRef.current) {
+      const p = map.project(hubRef.current);
+      card.style.transform = `translate(${p.x + 16}px, ${p.y - 14}px)`;
+      card.style.opacity = '1';
+    }
   }, []);
+
+  // Candidate card content, anchored near the district dot.
+  useEffect(() => {
+    const cont = overlay.current;
+    if (!cont) return;
+    if (!candidate) {
+      if (cardRef.current) {
+        cardRef.current.dataset.show = '0';
+        cardRef.current.style.opacity = '0';
+      }
+      return;
+    }
+    let el = cardRef.current;
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'otm-candidate';
+      cont.appendChild(el);
+      cardRef.current = el;
+    }
+    const party = candidate.party
+      ? `<span class="cand-party">${esc(candidate.party)}</span>`
+      : '';
+    const raised = money(candidate.receipts);
+    const indiv = money(candidate.individualTotal);
+    const stats =
+      raised || indiv
+        ? `<div class="cand-stats">${raised ? `<span><b>${raised}</b> raised</span>` : ''}${
+            indiv ? `<span><b>${indiv}</b> from individuals</span>` : ''
+          }</div>`
+        : '';
+    el.innerHTML = `<div class="cand-name">${esc(candidate.name)}${party}</div>${stats}`;
+    el.dataset.show = '1';
+    placeAll();
+  }, [candidate, placeAll]);
 
   useEffect(() => {
     if (!container.current || mapRef.current) return;
@@ -142,6 +202,7 @@ export function MapView({ scene }: { scene: Scene | null }) {
       style: DARK_STYLE as maplibregl.StyleSpecification,
       center: [-93, 40],
       zoom: 3.4,
+      attributionControl: { compact: true }, // collapsed "i" button by default
     });
     map.on('load', () => {
       ready.current = true;
@@ -471,7 +532,10 @@ export function MapView({ scene }: { scene: Scene | null }) {
           // While loading we have no real camera yet; anchor the marker on the
           // district's own centroid.
           const centroid = feature.properties?.centroid as [number, number] | undefined;
-          if (loading && Array.isArray(centroid)) placeMarker(centroid);
+          if (loading && Array.isArray(centroid)) {
+            placeMarker(centroid);
+            hubRef.current = centroid; // so the candidate card anchors on the dot
+          }
         }
       } catch (e) {
         console.error('district boundary', e);

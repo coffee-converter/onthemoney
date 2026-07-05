@@ -18,6 +18,13 @@ export interface Scene {
   loading?: boolean; // district identified, funding still being fetched
 }
 
+export interface Candidate {
+  name: string;
+  party?: string;
+  receipts?: string | null;
+  individualTotal?: string | null;
+}
+
 export interface Answer {
   text: string;
   confidence: Confidence;

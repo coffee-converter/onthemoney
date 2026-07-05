@@ -3,7 +3,7 @@ import { useState, type FormEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { streamAsk } from '../lib/api';
-import type { Answer, Scene, Step } from '../lib/types';
+import type { Answer, Candidate, Scene, Step } from '../lib/types';
 import { ConfidenceChip } from './ConfidenceChip';
 import { Citations } from './Citations';
 
@@ -54,7 +54,13 @@ function activities(steps: Step[]): Activity[] {
   return acts;
 }
 
-export function Chat({ onScene }: { onScene: (s: Scene) => void }) {
+export function Chat({
+  onScene,
+  onCandidate,
+}: {
+  onScene: (s: Scene) => void;
+  onCandidate: (c: Candidate | null) => void;
+}) {
   const [query, setQuery] = useState(SAMPLE);
   const [steps, setSteps] = useState<Step[]>([]);
   const [answer, setAnswer] = useState<Answer | null>(null);
@@ -66,7 +72,9 @@ export function Chat({ onScene }: { onScene: (s: Scene) => void }) {
     setSteps([]);
     setAnswer(null);
     setBusy(true);
+    onCandidate(null);
     let sceneRendered = false;
+    let cand: Candidate | null = null;
     streamAsk(query, (step) => {
       if (step.type === 'answer') {
         const a = step as unknown as Answer;
@@ -92,6 +100,21 @@ export function Chat({ onScene }: { onScene: (s: Scene) => void }) {
         }
       }
       setSteps((prev) => [...prev, step]);
+      // Candidate name/party as soon as the district resolves.
+      if (step.type === 'tool_result' && step.name === 'resolve_entity' && step.payload?.found) {
+        const c = step.payload.candidate as { name?: string; party?: string } | undefined;
+        cand = { name: c?.name ?? '', party: c?.party };
+        onCandidate(cand);
+      }
+      // Totals once funding returns.
+      if (step.type === 'tool_result' && step.name === 'funding_summary' && cand) {
+        cand = {
+          ...cand,
+          receipts: (step.payload?.receipts as string) ?? cand.receipts,
+          individualTotal: (step.payload?.individual_total as string) ?? cand.individualTotal,
+        };
+        onCandidate(cand);
+      }
       if (
         step.type === 'tool_result' &&
         step.name === 'emit_scene' &&

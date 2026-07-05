@@ -378,6 +378,50 @@ button:disabled {
   color: #ffd0a3;
 }
 
+.otm-candidate {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  max-width: 230px;
+  padding: 7px 10px;
+  background: rgba(13, 17, 23, 0.92);
+  border: 1px solid #2a3038;
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  will-change: transform;
+}
+
+.otm-candidate .cand-name {
+  font: 700 13px ui-sans-serif, system-ui, sans-serif;
+  color: #f0f3f6;
+}
+
+.otm-candidate .cand-party {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.otm-candidate .cand-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.otm-candidate .cand-stats b {
+  color: #e6edf3;
+  font-weight: 600;
+}
+
 .otm-district-code {
   position: absolute;
   top: 0;
