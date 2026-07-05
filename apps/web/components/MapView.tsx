@@ -19,6 +19,7 @@ function esc(s: string): string {
 // flows and district glow on top.
 const DARK_STYLE = {
   version: 8 as const,
+  glyphs: '/fonts/{fontstack}/{range}.pbf', // bundled locally for map labels
   sources: {
     carto: {
       type: 'raster' as const,
@@ -521,6 +522,7 @@ export function MapView({
               properties: {
                 norm: (r.value || 0) / max,
                 color: r.color || '',
+                label: r.label || '',
                 tip: (r.tooltip && r.tooltip.length
                   ? r.tooltip
                   : [`${r.place}: ${Math.round(r.value).toLocaleString()}`]
@@ -562,6 +564,24 @@ export function MapView({
           type: 'line',
           source: REGION_SRC,
           paint: { 'line-color': '#ffd24a', 'line-width': 0.8, 'line-opacity': 0.5 },
+        });
+        // District-code labels, styled like the flows-map watermark.
+        map.addLayer({
+          id: `${REGION_SRC}-label`,
+          type: 'symbol',
+          source: REGION_SRC,
+          layout: {
+            'text-field': ['get', 'label'],
+            'text-font': ['Open Sans Semibold'],
+            'text-size': 14,
+            'text-allow-overlap': false,
+          },
+          paint: {
+            'text-color': '#ffe08a',
+            'text-halo-color': '#0d1117',
+            'text-halo-width': 1.6,
+            'text-opacity': 0.92,
+          },
         });
       }
       if (feats.length) map.fitBounds(b, { padding: 70, duration: 1200, maxZoom: 9 });

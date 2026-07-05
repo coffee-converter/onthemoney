@@ -99,7 +99,7 @@ def _render_map(engine: Engine, args: dict) -> dict:
             continue
         centroid = district_centroid(*key.split("-"))
         regions.append({"place": key, "value": float(r.get("value") or 0),
-                        "color": r.get("color"),
+                        "color": r.get("color"), "label": r.get("label"),
                         "tooltip": [str(t) for t in (r.get("tooltip") or [])]})
         fit.append({"lng": centroid[0], "lat": centroid[1]})
     overlays: list[dict] = []
@@ -235,6 +235,7 @@ _SPECS = [
                         "place": {"type": "string", "description": "District id like AZ-01"},
                         "value": {"type": "number", "description": "Shades the district (heat map)"},
                         "color": {"type": "string", "description": "Explicit hex color, e.g. to color by party"},
+                        "label": {"type": "string", "description": "Text drawn on the district, e.g. its number"},
                         "tooltip": {"type": "array", "items": {"type": "string"},
                                     "description": "Hover text lines"},
                     },

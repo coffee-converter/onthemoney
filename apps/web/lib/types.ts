@@ -24,6 +24,7 @@ export interface OverlayRegion {
   place: string; // district id, e.g. "AZ-01"
   value: number;
   color?: string | null; // explicit color (e.g. by party); else shaded by value
+  label?: string | null; // text drawn on the district
   tooltip?: string[];
 }
 
