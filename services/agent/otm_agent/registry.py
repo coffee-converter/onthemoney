@@ -62,6 +62,27 @@ def _state_field(engine: Engine, args: dict) -> dict:
          "party": e.party, "itemized": f"{e.itemized:.2f}"} for e in entries]}
 
 
+def _donor_geography(engine: Engine, args: dict) -> dict:
+    # In-state vs out-of-state split of a candidate's itemized individual money.
+    # The home state is encoded in the FEC cand_id (H8NY15148 -> NY).
+    cand_id = args["cand_id"]
+    home = (args.get("home_state") or cand_id[2:4]).upper()
+    rows = contributions_by_state(engine, cand_id)
+    total = sum(float(r.amount) for r in rows)
+    in_state = sum(float(r.amount) for r in rows if (r.state or "").upper() == home)
+    out_state = total - in_state
+    return {
+        "home_state": home,
+        "itemized_total": round(total),
+        "in_state": round(in_state),
+        "out_of_state": round(out_state),
+        "out_of_state_pct": round(out_state / total * 100, 1) if total else 0,
+        "note": "itemized individual contributions only (unitemized small donors have no state)",
+        "top_states": [{"state": r.state, "amount": round(float(r.amount)),
+                        "count": r.count} for r in rows[:10]],
+    }
+
+
 def _fit_camera(pts: list[dict]) -> dict:
     if not pts:
         return {"type": "flyTo", "lon": -96.0, "lat": 38.0, "zoom": 4}
@@ -247,6 +268,19 @@ _SPECS = [
             "required": ["cand_id"],
         },
         handler=_industry_breakdown,
+    ),
+    ToolSpec(
+        name="donor_geography",
+        description="Where a candidate's itemized individual money comes from by donor "
+                    "state: in-state vs out-of-state totals, the out-of-state share (%), "
+                    "and the top donor states. Use for 'how much is out-of-state', "
+                    "'where does their money come from'. Itemized contributions only.",
+        input_schema={
+            "type": "object",
+            "properties": {"cand_id": {"type": "string", "description": "FEC candidate id"}},
+            "required": ["cand_id"],
+        },
+        handler=_donor_geography,
     ),
     ToolSpec(
         name="top_employers",
