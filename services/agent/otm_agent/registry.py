@@ -70,23 +70,43 @@ def _fit_camera(pts: list[dict]) -> dict:
             "lat": sum(lats) / len(lats), "zoom": 5}
 
 
+def _norm_district(place) -> str | None:
+    if isinstance(place, str) and "-" in place:
+        st, di = place.split("-", 1)
+        key = f"{st.strip().upper()}-{di.strip().zfill(2)}"
+        return key if district_centroid(*key.split("-")) is not None else None
+    return None
+
+
 def _render_map(engine: Engine, args: dict) -> dict:
-    # Ground each semantic place to real coordinates - the agent picks what and
-    # how to draw; it never supplies raw geometry.
+    # Ground each semantic place to real geometry - the agent picks what and how
+    # to draw; it never supplies raw coordinates.
     pts: list[dict] = []
+    fit: list[dict] = []
     for p in args.get("points", []):
         coord = resolve_place(p.get("place"))
         if coord is None:
             continue
-        pts.append({
-            "lng": coord[0], "lat": coord[1],
-            "value": float(p.get("value") or 0),
-            "color": p.get("color"),
-            "label": p.get("label"),
-            "tooltip": [str(t) for t in (p.get("tooltip") or [])],
-        })
-    return {"camera": _fit_camera(pts), "flows": [],
-            "overlays": [{"type": "points", "points": pts}],
+        pt = {"lng": coord[0], "lat": coord[1], "value": float(p.get("value") or 0),
+              "color": p.get("color"), "label": p.get("label"),
+              "tooltip": [str(t) for t in (p.get("tooltip") or [])]}
+        pts.append(pt)
+        fit.append(pt)
+    regions: list[dict] = []
+    for r in args.get("regions", []):
+        key = _norm_district(r.get("place"))
+        if key is None:
+            continue
+        centroid = district_centroid(*key.split("-"))
+        regions.append({"place": key, "value": float(r.get("value") or 0),
+                        "tooltip": [str(t) for t in (r.get("tooltip") or [])]})
+        fit.append({"lng": centroid[0], "lat": centroid[1]})
+    overlays: list[dict] = []
+    if pts:
+        overlays.append({"type": "points", "points": pts})
+    if regions:
+        overlays.append({"type": "regions", "regions": regions})
+    return {"camera": _fit_camera(fit), "flows": [], "overlays": overlays,
             "title": args.get("title", "")}
 
 
@@ -185,12 +205,14 @@ _SPECS = [
     ),
     ToolSpec(
         name="render_map",
-        description="Draw a custom map of points. Each point: 'place' (a district id "
-                    "like 'AZ-01' or a state code like 'AZ'), an optional numeric 'value' "
-                    "(sizes the marker), 'color' (hex), 'label', and 'tooltip' (array of "
-                    "text lines shown on hover). Use to visualize analysis the district "
-                    "money-map cannot, e.g. every candidate in a state colored by party "
-                    "and sized by money raised.",
+        description="Draw a custom map. Provide 'points' (sized/colored markers) "
+                    "and/or 'regions' (a choropleth heat map shading district polygons "
+                    "by value). Each item's 'place' is a district id like 'AZ-01' "
+                    "(regions must be districts; points may also use a state code). "
+                    "'value' sizes markers or colors regions; 'tooltip' is hover text "
+                    "lines; points also take 'color' and 'label'. Use 'regions' for "
+                    "choropleth / heat-map requests, 'points' for markers. Values must "
+                    "come from tool results - never invent numbers.",
         input_schema={
             "type": "object",
             "properties": {
@@ -206,9 +228,18 @@ _SPECS = [
                     },
                     "required": ["place"],
                 }},
+                "regions": {"type": "array", "items": {
+                    "type": "object",
+                    "properties": {
+                        "place": {"type": "string", "description": "District id like AZ-01"},
+                        "value": {"type": "number", "description": "Colors the district (heat map)"},
+                        "tooltip": {"type": "array", "items": {"type": "string"},
+                                    "description": "Hover text lines"},
+                    },
+                    "required": ["place", "value"],
+                }},
                 "title": {"type": "string"},
             },
-            "required": ["points"],
         },
         handler=_render_map,
     ),

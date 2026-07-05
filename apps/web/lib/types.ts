@@ -20,9 +20,16 @@ export interface OverlayPoint {
   tooltip?: string[];
 }
 
+export interface OverlayRegion {
+  place: string; // district id, e.g. "AZ-01"
+  value: number;
+  tooltip?: string[];
+}
+
 export interface Overlay {
-  type: 'points';
-  points: OverlayPoint[];
+  type: 'points' | 'regions';
+  points?: OverlayPoint[];
+  regions?: OverlayRegion[];
 }
 
 export interface Scene {

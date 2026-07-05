@@ -36,6 +36,7 @@ const DARK_STYLE = {
 };
 
 const OVERLAY_SRC = 'otm-overlay-points';
+const REGION_SRC = 'otm-overlay-regions';
 
 type Ring = [number, number][];
 
@@ -322,6 +323,8 @@ export function MapView({
     };
     map.on('mousemove', OVERLAY_SRC, showOverlayTip);
     map.on('mouseleave', OVERLAY_SRC, hideTip);
+    map.on('mousemove', REGION_SRC, showOverlayTip);
+    map.on('mouseleave', REGION_SRC, hideTip);
 
     const ro = new ResizeObserver(() => {
       map.resize();
@@ -457,26 +460,15 @@ export function MapView({
       animRef.current = requestAnimationFrame(frame);
     };
 
+    const EMPTY_FC = { type: 'FeatureCollection', features: [] };
     const clearOverlay = () => {
-      const s = map.getSource(OVERLAY_SRC) as maplibregl.GeoJSONSource | undefined;
-      if (s) s.setData({ type: 'FeatureCollection', features: [] } as never);
+      for (const id of [OVERLAY_SRC, REGION_SRC]) {
+        const s = map.getSource(id) as maplibregl.GeoJSONSource | undefined;
+        if (s) s.setData(EMPTY_FC as never);
+      }
     };
 
-    // Generic renderer for an agent-composed layer (render_map): sized/colored
-    // points with agent-authored tooltip lines.
-    const renderOverlays = (sc: Scene) => {
-      stopPulse();
-      animatingRef.current = false;
-      clearFlows();
-      for (const l of labelsRef.current) l.el.remove();
-      labelsRef.current = [];
-      if (markerRef.current) {
-        markerRef.current.remove();
-        markerRef.current = null;
-      }
-      if (districtRef.current) districtRef.current.el.style.opacity = '0';
-      hubRef.current = null;
-      const pts = sc.overlays?.[0]?.points ?? [];
+    const renderPoints = (pts: import('../lib/types').OverlayPoint[]) => {
       const max = Math.max(1, ...pts.map((p) => p.value || 0));
       const data = {
         type: 'FeatureCollection',
@@ -510,10 +502,102 @@ export function MapView({
           },
         });
       }
-      if (pts.length) {
-        const b = new maplibregl.LngLatBounds();
-        for (const p of pts) b.extend([p.lng, p.lat]);
-        map.fitBounds(b, { padding: 70, duration: 1200, maxZoom: 9 });
+    };
+
+    // Choropleth: fetch each district's boundary and shade it by value.
+    const renderRegions = async (regions: import('../lib/types').OverlayRegion[]) => {
+      const max = Math.max(1, ...regions.map((r) => r.value || 0));
+      const feats: unknown[] = [];
+      const b = new maplibregl.LngLatBounds();
+      await Promise.all(
+        regions.map(async (r) => {
+          try {
+            const res = await fetch(`/districts/${r.place}.json`);
+            if (!res.ok) return;
+            const f = await res.json();
+            feats.push({
+              type: 'Feature',
+              geometry: f.geometry,
+              properties: {
+                norm: (r.value || 0) / max,
+                tip: (r.tooltip && r.tooltip.length
+                  ? r.tooltip
+                  : [`${r.place}: ${Math.round(r.value).toLocaleString()}`]
+                ).join('\n'),
+              },
+            });
+            const [[x0, y0], [x1, y1]] = boundsOf(f.geometry) as [
+              [number, number],
+              [number, number],
+            ];
+            b.extend([x0, y0]);
+            b.extend([x1, y1]);
+          } catch {
+            /* skip unreachable boundary */
+          }
+        }),
+      );
+      const data = { type: 'FeatureCollection', features: feats };
+      const src = map.getSource(REGION_SRC) as maplibregl.GeoJSONSource | undefined;
+      if (src) {
+        src.setData(data as never);
+      } else {
+        map.addSource(REGION_SRC, { type: 'geojson', data: data as never });
+        map.addLayer({
+          id: REGION_SRC,
+          type: 'fill',
+          source: REGION_SRC,
+          paint: {
+            'fill-color': ['interpolate', ['linear'], ['get', 'norm'],
+              0, '#2a2413', 0.5, '#c9971f', 1, '#ffe08a'],
+            'fill-opacity': 0.6,
+          },
+        });
+        map.addLayer({
+          id: `${REGION_SRC}-line`,
+          type: 'line',
+          source: REGION_SRC,
+          paint: { 'line-color': '#ffd24a', 'line-width': 0.8, 'line-opacity': 0.5 },
+        });
+      }
+      if (feats.length) map.fitBounds(b, { padding: 70, duration: 1200, maxZoom: 9 });
+    };
+
+    // Generic renderer for an agent-composed scene (render_map): point markers
+    // and/or a choropleth, with agent-authored tooltips.
+    const renderOverlays = (sc: Scene) => {
+      stopPulse();
+      animatingRef.current = false;
+      clearFlows();
+      for (const l of labelsRef.current) l.el.remove();
+      labelsRef.current = [];
+      if (markerRef.current) {
+        markerRef.current.remove();
+        markerRef.current = null;
+      }
+      if (districtRef.current) districtRef.current.el.style.opacity = '0';
+      hubRef.current = null;
+
+      const pointsO = sc.overlays?.find((o) => o.type === 'points');
+      const regionsO = sc.overlays?.find((o) => o.type === 'regions');
+
+      if (pointsO?.points?.length) {
+        renderPoints(pointsO.points);
+        if (!regionsO) {
+          const b = new maplibregl.LngLatBounds();
+          for (const p of pointsO.points) b.extend([p.lng, p.lat]);
+          map.fitBounds(b, { padding: 70, duration: 1200, maxZoom: 9 });
+        }
+      } else {
+        const s = map.getSource(OVERLAY_SRC) as maplibregl.GeoJSONSource | undefined;
+        if (s) s.setData(EMPTY_FC as never);
+      }
+
+      if (regionsO?.regions?.length) {
+        renderRegions(regionsO.regions); // async; fits to the shaded districts
+      } else {
+        const s = map.getSource(REGION_SRC) as maplibregl.GeoJSONSource | undefined;
+        if (s) s.setData(EMPTY_FC as never);
       }
     };
 
