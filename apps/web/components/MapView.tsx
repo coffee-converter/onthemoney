@@ -21,6 +21,20 @@ function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ESC[c]);
 }
 
+// Real party families -> clean badge; anything else (OTH, W, "18", TX...) is dropped.
+const PARTY: Record<string, string> = {
+  DEM: 'D', DFL: 'D', DNL: 'D',
+  REP: 'R', GOP: 'R',
+  IND: 'I', NPA: 'I', NON: 'I', NOP: 'I', NNE: 'I', NPP: 'I', UN: 'I', UND: 'I',
+  LIB: 'L',
+  GRE: 'G', GWP: 'G',
+  CON: 'C',
+};
+function partyLabel(code?: string): string | null {
+  if (!code) return null;
+  return PARTY[code.toUpperCase()] ?? null;
+}
+
 const TITLES = new Set([
   'DR', 'MR', 'MRS', 'MS', 'MISS', 'HON', 'REV', 'PROF', 'SEN', 'REP', 'MAJ', 'COL', 'CAPT', 'LT', 'SGT',
 ]);
@@ -253,9 +267,8 @@ export function MapView({
       cont.appendChild(el);
       cardRef.current = el;
     }
-    const party = candidate.party
-      ? `<span class="cand-party">${esc(candidate.party)}</span>`
-      : '';
+    const pl = partyLabel(candidate.party);
+    const party = pl ? `<span class="cand-party">${esc(pl)}</span>` : '';
     const raised = money(candidate.receipts);
     const indiv = money(candidate.individualTotal);
     const stats =
