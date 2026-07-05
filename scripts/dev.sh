@@ -30,13 +30,23 @@ fi
 # tests run against a separate database so they never clobber dev data
 "$PG/createdb" -p 5433 -U otm -h localhost otm_test 2>/dev/null || true
 
-echo "[2/4] Ingesting a bounded FEC slice (set FEC_API_KEY for reliability)"
-if ( cd "$ROOT/services/data" \
-     && FEC_API_KEY="${FEC_API_KEY:-DEMO_KEY}" uv run python -m otm_data.fetch_slice --out-dir ./_fec \
-     && uv run python -m otm_data.ingest --cycle 2024 --data-dir ./_fec ); then
-  :
+echo "[2/4] FEC data"
+# Never clobber an existing load (e.g. the full nationwide import). Ingest only
+# runs on an empty DB, unless OTM_FORCE_INGEST=1 is set.
+EXISTING="$("$PG/psql" -tA -p 5433 -U otm -h localhost -d otm \
+            -c 'SELECT COUNT(*) FROM contributions' 2>/dev/null | tr -d '[:space:]')"
+case "$EXISTING" in ''|*[!0-9]*) EXISTING=0 ;; esac
+if [ "${OTM_FORCE_INGEST:-}" != "1" ] && [ "$EXISTING" -gt 0 ]; then
+  echo "      $EXISTING contributions already loaded; skipping ingest (OTM_FORCE_INGEST=1 to force)"
 else
-  echo "      skipped ingest (see message above); using data already loaded"
+  echo "      Ingesting a bounded FEC slice (set FEC_API_KEY for reliability)"
+  if ( cd "$ROOT/services/data" \
+       && FEC_API_KEY="${FEC_API_KEY:-DEMO_KEY}" uv run python -m otm_data.fetch_slice --out-dir ./_fec \
+       && uv run python -m otm_data.ingest --cycle 2024 --data-dir ./_fec ); then
+    :
+  else
+    echo "      skipped ingest (see message above); using data already loaded"
+  fi
 fi
 
 if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
