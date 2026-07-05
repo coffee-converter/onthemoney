@@ -127,6 +127,14 @@ _PARTY_LETTER = {"DEM": "D", "DFL": "D", "DNL": "D", "REP": "R", "GOP": "R",
                  "GRE": "G", "CON": "C"}
 
 
+def _short_money(amt: float) -> str:
+    if amt >= 1_000_000:
+        return f"${amt / 1_000_000:.1f}M"
+    if amt >= 1_000:
+        return f"${amt / 1_000:.0f}k"
+    return f"${amt:.0f}"
+
+
 def _map_state(engine: Engine, args: dict) -> dict:
     # Build a whole-state map server-side so the agent never hand-transcribes a
     # long list (which it sometimes gets wrong). The agent just picks encoding.
@@ -134,7 +142,7 @@ def _map_state(engine: Engine, args: dict) -> dict:
     entries = state_field(engine, state)
     color_by = args.get("color_by", "party")
     shape = "points" if args.get("shape") == "points" else "regions"
-    label = args.get("label", True)
+    label_mode = str(args.get("label", "district")).lower()  # district|total|name|none
     items: list[dict] = []
     for e in entries:
         if district_centroid(state, e.district) is None:
@@ -144,8 +152,12 @@ def _map_state(engine: Engine, args: dict) -> dict:
                 "tooltip": [e.name, pl or e.party, f"${float(e.itemized):,.0f}"]}
         if color_by == "party" and pl in _PARTY_HEX:
             item["color"] = _PARTY_HEX[pl]
-        if label:
+        if label_mode == "district":
             item["label"] = e.district
+        elif label_mode == "total":
+            item["label"] = _short_money(float(e.itemized))
+        elif label_mode == "name":
+            item["label"] = e.name.split(",")[0].title()
         items.append(item)
     field = "points" if shape == "points" else "regions"
     return _render_map(engine, {field: items, "title": f"{state} House districts"})
@@ -291,7 +303,8 @@ _SPECS = [
                              "description": "Color by party, or shade by money"},
                 "shape": {"type": "string", "enum": ["regions", "points"],
                           "description": "Choropleth polygons or bubbles"},
-                "label": {"type": "boolean", "description": "Draw district numbers"},
+                "label": {"type": "string", "enum": ["district", "total", "name", "none"],
+                          "description": "Label each district with its number, total, candidate name, or nothing"},
             },
             "required": ["state"],
         },
