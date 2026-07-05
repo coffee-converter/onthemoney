@@ -35,6 +35,8 @@ const DARK_STYLE = {
   layers: [{ id: 'carto', type: 'raster' as const, source: 'carto' }],
 };
 
+const OVERLAY_SRC = 'otm-overlay-points';
+
 type Ring = [number, number][];
 
 function boundsOf(geom: { type: string; coordinates: unknown }): maplibregl.LngLatBoundsLike {
@@ -301,6 +303,26 @@ export function MapView({
       map.on('click', layer, show); // tap support on touch devices
     }
 
+    // Custom-overlay points carry agent-authored tooltip lines.
+    const showOverlayTip = (e: maplibregl.MapLayerMouseEvent) => {
+      const f = e.features?.[0];
+      if (!f) return;
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+      map.getCanvas().style.cursor = 'pointer';
+      const tip = String((f.properties as { tip?: string })?.tip ?? '');
+      const html = tip
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => `<div>${l.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</div>`)
+        .join('');
+      popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
+    };
+    map.on('mousemove', OVERLAY_SRC, showOverlayTip);
+    map.on('mouseleave', OVERLAY_SRC, hideTip);
+
     const ro = new ResizeObserver(() => {
       map.resize();
       placeAll();
@@ -369,7 +391,7 @@ export function MapView({
     // growing outward from the district.
     const animateFlows = (sc: Scene, center: [number, number]) => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
-      const home = sc.highlight.state.toUpperCase();
+      const home = (sc.highlight?.state ?? '').toUpperCase();
       const maxTotal = Math.max(1, ...sc.flows.map((f) => parseFloat(f.total) || 0));
       const items = sc.flows
         .map((f) => {
@@ -435,9 +457,76 @@ export function MapView({
       animRef.current = requestAnimationFrame(frame);
     };
 
+    const clearOverlay = () => {
+      const s = map.getSource(OVERLAY_SRC) as maplibregl.GeoJSONSource | undefined;
+      if (s) s.setData({ type: 'FeatureCollection', features: [] } as never);
+    };
+
+    // Generic renderer for an agent-composed layer (render_map): sized/colored
+    // points with agent-authored tooltip lines.
+    const renderOverlays = (sc: Scene) => {
+      stopPulse();
+      animatingRef.current = false;
+      clearFlows();
+      for (const l of labelsRef.current) l.el.remove();
+      labelsRef.current = [];
+      if (markerRef.current) {
+        markerRef.current.remove();
+        markerRef.current = null;
+      }
+      if (districtRef.current) districtRef.current.el.style.opacity = '0';
+      hubRef.current = null;
+      const pts = sc.overlays?.[0]?.points ?? [];
+      const max = Math.max(1, ...pts.map((p) => p.value || 0));
+      const data = {
+        type: 'FeatureCollection',
+        features: pts.map((p, i) => ({
+          type: 'Feature',
+          id: i,
+          geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+          properties: {
+            color: p.color || '#4a90e2',
+            radius: 6 + Math.sqrt((p.value || 0) / max) * 34,
+            tip: (p.tooltip && p.tooltip.length ? p.tooltip : [p.label || '']).join('\n'),
+          },
+        })),
+      };
+      const src = map.getSource(OVERLAY_SRC) as maplibregl.GeoJSONSource | undefined;
+      if (src) {
+        src.setData(data as never);
+      } else {
+        map.addSource(OVERLAY_SRC, { type: 'geojson', data: data as never });
+        map.addLayer({
+          id: OVERLAY_SRC,
+          type: 'circle',
+          source: OVERLAY_SRC,
+          paint: {
+            'circle-radius': ['get', 'radius'],
+            'circle-color': ['get', 'color'],
+            'circle-opacity': 0.82,
+            'circle-blur': 0.15,
+            'circle-stroke-color': '#0d1117',
+            'circle-stroke-width': 1.5,
+          },
+        });
+      }
+      if (pts.length) {
+        const b = new maplibregl.LngLatBounds();
+        for (const p of pts) b.extend([p.lng, p.lat]);
+        map.fitBounds(b, { padding: 70, duration: 1200, maxZoom: 9 });
+      }
+    };
+
     const run = async () => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
       if (animTimeoutRef.current) clearTimeout(animTimeoutRef.current);
+      if (scene.overlays?.length) {
+        renderOverlays(scene);
+        return;
+      }
+      clearOverlay(); // leaving a custom overlay view
+      const hl = scene.highlight;
+      if (!hl) return;
       applyScene(map as unknown as MapLike, scene);
 
       const loading = !!scene.loading; // district known, funding still fetching
@@ -460,7 +549,7 @@ export function MapView({
       if (cont) {
         for (const l of labelsRef.current) l.el.remove();
         labelsRef.current = [];
-        const home = scene.highlight.state.toUpperCase();
+        const home = hl.state.toUpperCase();
         for (const f of scene.flows) {
           const st = f.state.toUpperCase();
           const origin = STATE_CENTROIDS[st];
@@ -510,7 +599,7 @@ export function MapView({
 
       let districtGeom: { type: string; coordinates: unknown } | null = null;
       try {
-        const key = `${scene.highlight.state}-${scene.highlight.district}`;
+        const key = `${hl.state}-${hl.district}`;
         const res = await fetch(`/districts/${key}.json`);
         if (res.ok) {
           const feature = await res.json();

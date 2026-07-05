@@ -6,7 +6,7 @@ from otm_data.load import (
 from otm_data.oracle import (
     resolve_candidate, committees_for_candidate, total_raised, top_donors,
     candidate_finance, contributions_by_state, district_candidates,
-    classify_industry, industry_breakdown, top_employers,
+    classify_industry, industry_breakdown, top_employers, state_field,
 )
 from otm_data.load import load_candidate_totals
 
@@ -22,6 +22,14 @@ def _seed(engine):
     load_linkages(engine, _lines("ccl_sample.txt"))
     load_contributions(engine, _lines("itcont_sample.txt"),
                        cmte_ids=linked_committee_ids(engine))
+
+
+def test_state_field(db_engine):
+    _seed(db_engine)
+    field = state_field(db_engine, "AZ")
+    assert field
+    az06 = [e for e in field if e.district == "06"]
+    assert az06 and az06[0].cand_id == "H2AZ06099"
 
 
 def test_classify_industry():

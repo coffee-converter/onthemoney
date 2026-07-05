@@ -2,10 +2,12 @@ from dataclasses import asdict, dataclass
 from typing import Callable
 from sqlalchemy import Engine
 from otm_agent.tools import resolve_entity, funding_summary
-from otm_agent.geo import district_centroid
+from otm_agent.geo import district_centroid, resolve_place
 from otm_agent.scene import build_scene
 from otm_agent.config import get_settings
-from otm_data.oracle import contributions_by_state, industry_breakdown, top_employers
+from otm_data.oracle import (
+    contributions_by_state, industry_breakdown, top_employers, state_field,
+)
 
 
 @dataclass
@@ -50,6 +52,52 @@ def _top_employers(engine: Engine, args: dict) -> dict:
         {"employer": e.employer, "amount": f"{e.amount:.2f}", "count": e.count}
         for e in emps
     ]}
+
+
+def _state_field(engine: Engine, args: dict) -> dict:
+    entries = state_field(engine, args["state"].upper())
+    return {"state": args["state"].upper(), "candidates": [
+        {"district": e.district, "cand_id": e.cand_id, "name": e.name,
+         "party": e.party, "itemized": f"{e.itemized:.2f}"} for e in entries]}
+
+
+def _fit_camera(pts: list[dict]) -> dict:
+    if not pts:
+        return {"type": "flyTo", "lon": -96.0, "lat": 38.0, "zoom": 4}
+    lons = [p["lng"] for p in pts]
+    lats = [p["lat"] for p in pts]
+    return {"type": "flyTo", "lon": sum(lons) / len(lons),
+            "lat": sum(lats) / len(lats), "zoom": 5}
+
+
+def _render_map(engine: Engine, args: dict) -> dict:
+    # Ground each semantic place to real coordinates - the agent picks what and
+    # how to draw; it never supplies raw geometry.
+    pts: list[dict] = []
+    for p in args.get("points", []):
+        coord = resolve_place(p.get("place"))
+        if coord is None:
+            continue
+        pts.append({
+            "lng": coord[0], "lat": coord[1],
+            "value": float(p.get("value") or 0),
+            "color": p.get("color"),
+            "label": p.get("label"),
+            "tooltip": [str(t) for t in (p.get("tooltip") or [])],
+        })
+    return {"camera": _fit_camera(pts), "flows": [],
+            "overlays": [{"type": "points", "points": pts}],
+            "title": args.get("title", "")}
+
+
+def _highlight_district(engine: Engine, args: dict) -> dict:
+    state, district = args["state"].upper(), args["district"]
+    centroid = district_centroid(state, district)
+    if centroid is None:
+        return {"insufficient": True}
+    lon, lat = centroid
+    return {"camera": {"type": "flyTo", "lon": lon, "lat": lat, "zoom": 7},
+            "highlight": {"state": state, "district": district}, "flows": []}
 
 
 def _emit_scene(engine: Engine, args: dict) -> dict:
@@ -118,8 +166,56 @@ _SPECS = [
         handler=_top_employers,
     ),
     ToolSpec(
+        name="highlight_district",
+        description="Just locate and highlight a district on the map (outline and "
+                    "label, no money flows). Use for 'where is <district>' questions.",
+        input_schema=_STATE_DISTRICT,
+        handler=_highlight_district,
+    ),
+    ToolSpec(
+        name="state_field",
+        description="Every district's leading candidate across a state (district, "
+                    "cand_id, name, party, itemized total). Data for a whole-state map.",
+        input_schema={
+            "type": "object",
+            "properties": {"state": {"type": "string", "description": "Two-letter state code"}},
+            "required": ["state"],
+        },
+        handler=_state_field,
+    ),
+    ToolSpec(
+        name="render_map",
+        description="Draw a custom map of points. Each point: 'place' (a district id "
+                    "like 'AZ-01' or a state code like 'AZ'), an optional numeric 'value' "
+                    "(sizes the marker), 'color' (hex), 'label', and 'tooltip' (array of "
+                    "text lines shown on hover). Use to visualize analysis the district "
+                    "money-map cannot, e.g. every candidate in a state colored by party "
+                    "and sized by money raised.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "points": {"type": "array", "items": {
+                    "type": "object",
+                    "properties": {
+                        "place": {"type": "string", "description": "District id (AZ-01) or state code (AZ)"},
+                        "value": {"type": "number", "description": "Sizes the marker"},
+                        "color": {"type": "string", "description": "Hex color, e.g. #4a90e2"},
+                        "label": {"type": "string"},
+                        "tooltip": {"type": "array", "items": {"type": "string"},
+                                    "description": "Hover text lines"},
+                    },
+                    "required": ["place"],
+                }},
+                "title": {"type": "string"},
+            },
+            "required": ["points"],
+        },
+        handler=_render_map,
+    ),
+    ToolSpec(
         name="emit_scene",
-        description="Build MapLibre scene commands for a district's funding view",
+        description="Build MapLibre scene commands for a district's funding view "
+                    "(district plus money flows). Use for 'who funds <district>'.",
         input_schema=_STATE_DISTRICT,
         handler=_emit_scene,
     ),

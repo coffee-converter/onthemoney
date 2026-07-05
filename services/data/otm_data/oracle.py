@@ -136,6 +136,37 @@ def district_candidates(engine: Engine, *, state: str, district: str,
 
 
 @dataclass
+class StateFieldEntry:
+    district: str
+    cand_id: str
+    name: str
+    party: str
+    itemized: Decimal
+
+
+def state_field(engine: Engine, state: str, *,
+                election_yr: int = 2024) -> list[StateFieldEntry]:
+    # Each district's leading candidate (by itemized receipts) across a state -
+    # the data behind a whole-state candidate map.
+    with engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT DISTINCT ON (district) district, cand_id, name, party, itemized "
+            "FROM (SELECT c.district, c.cand_id, c.name, c.party, "
+            "  COALESCE(SUM(ct.amount), 0) AS itemized FROM candidates c "
+            "  LEFT JOIN candidate_committee cc "
+            "    ON cc.cand_id = c.cand_id AND cc.election_yr = c.election_yr "
+            "  LEFT JOIN contributions ct "
+            "    ON ct.cmte_id = cc.cmte_id AND COALESCE(ct.memo_cd, '') <> 'X' "
+            "  WHERE c.office = 'H' AND c.office_state = :state "
+            "    AND c.election_yr = :yr "
+            "  GROUP BY c.district, c.cand_id, c.name, c.party) t "
+            "ORDER BY district, itemized DESC"
+        ), {"state": state, "yr": election_yr}).all()
+    return [StateFieldEntry(district=r[0], cand_id=r[1], name=r[2], party=r[3],
+                            itemized=Decimal(r[4])) for r in rows]
+
+
+@dataclass
 class EmployerTotal:
     employer: str
     amount: Decimal

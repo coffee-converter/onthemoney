@@ -19,7 +19,7 @@ function maxTotal(scene: Scene): number {
 
 export function sceneToFlows(scene: Scene): GeoJson {
   const center: [number, number] = [scene.camera.lon, scene.camera.lat];
-  const home = scene.highlight.state.toUpperCase();
+  const home = (scene.highlight?.state ?? '').toUpperCase();
   const max = maxTotal(scene);
   const features: unknown[] = [];
   for (const f of scene.flows) {
@@ -40,7 +40,7 @@ export function sceneToFlows(scene: Scene): GeoJson {
 }
 
 export function sceneToBubbles(scene: Scene): GeoJson {
-  const home = scene.highlight.state.toUpperCase();
+  const home = (scene.highlight?.state ?? '').toUpperCase();
   const max = maxTotal(scene);
   const features: unknown[] = [];
   for (const f of scene.flows) {

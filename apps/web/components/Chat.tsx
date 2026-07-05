@@ -128,9 +128,9 @@ export function Chat({
       }
       if (
         step.type === 'tool_result' &&
-        step.name === 'emit_scene' &&
+        ['emit_scene', 'render_map', 'highlight_district'].includes(step.name ?? '') &&
         step.payload &&
-        'highlight' in step.payload
+        !('insufficient' in step.payload)
       ) {
         onScene(step.payload as unknown as Scene);
         sceneRendered = true;

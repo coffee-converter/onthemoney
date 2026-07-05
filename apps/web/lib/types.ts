@@ -11,10 +11,25 @@ export interface Flow {
   count: number;
 }
 
+export interface OverlayPoint {
+  lng: number;
+  lat: number;
+  value: number;
+  color?: string | null;
+  label?: string | null;
+  tooltip?: string[];
+}
+
+export interface Overlay {
+  type: 'points';
+  points: OverlayPoint[];
+}
+
 export interface Scene {
   camera: { type: string; lon: number; lat: number; zoom: number };
-  highlight: { state: string; district: string };
+  highlight?: { state: string; district: string };
   flows: Flow[];
+  overlays?: Overlay[]; // agent-composed custom layers (render_map)
   loading?: boolean; // district identified, funding still being fetched
 }
 
