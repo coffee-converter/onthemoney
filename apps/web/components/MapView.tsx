@@ -151,6 +151,7 @@ export function MapView({ scene }: { scene: Scene | null }) {
       closeButton: false,
       closeOnClick: false,
       className: 'otm-popup',
+      offset: 18, // keep the tooltip off the cursor
     });
     let hovered: string | null = null;
     const setHover = (state: string | null) => {
@@ -161,12 +162,19 @@ export function MapView({ scene }: { scene: Scene | null }) {
       }
       hovered = state;
     };
+    // Debounce the hide so moving the cursor across a label's edge (label <->
+    // line) doesn't flicker: any new hover cancels the pending hide.
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
     const showTip = (
       state: string | undefined,
       total: string | number | undefined,
       count: number | undefined,
       lngLat: maplibregl.LngLatLike,
     ) => {
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
       map.getCanvas().style.cursor = 'pointer';
       setHover(state ?? null);
       const amt = Number(total ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
@@ -174,9 +182,13 @@ export function MapView({ scene }: { scene: Scene | null }) {
       popup.setLngLat(lngLat).setHTML(`<b>${state}</b> &middot; $${amt}${donors}`).addTo(map);
     };
     const hideTip = () => {
-      map.getCanvas().style.cursor = '';
-      setHover(null);
-      popup.remove();
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        hideTimer = null;
+        map.getCanvas().style.cursor = '';
+        setHover(null);
+        popup.remove();
+      }, 130);
     };
     tipRef.current = { showTip, hideTip };
     const show = (e: maplibregl.MapLayerMouseEvent) => {
@@ -251,6 +263,26 @@ export function MapView({ scene }: { scene: Scene | null }) {
             tip.showTip(st, total, count, lngLat);
           });
           lab.addEventListener('mouseleave', () => tipRef.current?.hideTip());
+          // Labels capture pointer events (for hover), so forward the wheel to
+          // the map or scroll-zoom breaks while hovering one.
+          lab.addEventListener(
+            'wheel',
+            (ev) => {
+              ev.preventDefault();
+              map.getCanvasContainer().dispatchEvent(
+                new WheelEvent('wheel', {
+                  deltaX: ev.deltaX,
+                  deltaY: ev.deltaY,
+                  deltaMode: ev.deltaMode,
+                  clientX: ev.clientX,
+                  clientY: ev.clientY,
+                  bubbles: true,
+                  cancelable: true,
+                }),
+              );
+            },
+            { passive: false },
+          );
           cont.appendChild(lab);
           labelsRef.current.push({ state: st, origin, amount: parseFloat(f.total) || 0, el: lab });
         }

@@ -318,6 +318,7 @@ button:disabled {
   top: 0;
   left: 0;
   z-index: 2;
+  padding: 4px 7px; /* enlarge the hover hit target */
   font: 600 11px ui-sans-serif, system-ui, sans-serif;
   white-space: nowrap;
   letter-spacing: 0.02em;
@@ -326,6 +327,11 @@ button:disabled {
   pointer-events: auto;
   cursor: pointer;
   will-change: transform;
+}
+
+.otm-label:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
 }
 
 .otm-label.is-in {
