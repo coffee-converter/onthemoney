@@ -26,6 +26,17 @@ Early build. The v1 slice covers the 2024 cycle, U.S. House races, and individua
 - `apps/api`: NestJS backend-for-frontend. Typed contracts, stream relay, scoreboard endpoint.
 - `apps/web`: Next.js and MapLibre. The steerable atlas, the streamed step trace, calibrated confidence, and citations.
 
+## Run it locally
+
+You need an `ANTHROPIC_API_KEY`. Postgres 16 and Node are the only other prerequisites.
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-... ./scripts/dev.sh   # Postgres, data, agent, BFF
+cd apps/web && npm run dev                        # then open http://localhost:3000
+```
+
+`scripts/dev.sh` boots Postgres, pulls a small real FEC slice (set `FEC_API_KEY` for reliability, or it falls back to the demo key), and starts the agent and BFF. Ask about AZ-06, CA-22, PA-08, or TX-34.
+
 ## Non-partisan by design
 
 On The Money makes the public record legible. All output is descriptive: no endorsements, no editorializing, no predictions.
