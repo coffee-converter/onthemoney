@@ -57,6 +57,7 @@ interface StateLabel {
 interface District {
   spot: [number, number]; // pole of inaccessibility, lng/lat
   r: number; // inscribed radius, degrees
+  ratio: number; // rendered text width per 1px of font-size
   el: HTMLDivElement;
 }
 
@@ -107,7 +108,10 @@ export function MapView({ scene }: { scene: Scene | null }) {
       const c = map.project(d.spot);
       const edge = map.project([d.spot[0], d.spot[1] + d.r]);
       const rpx = Math.hypot(edge.x - c.x, edge.y - c.y);
-      const size = Math.max(16, Math.min(rpx * 0.85, 260));
+      // Fit the text WIDTH inside the inscribed diameter (with margin) so it
+      // never spills past the district's largest open area.
+      const targetW = 2 * rpx * 0.8;
+      const size = Math.max(14, Math.min(targetW / d.ratio, 300));
       d.el.style.transform = `translate(${c.x}px, ${c.y}px) translate(-50%, -50%)`;
       d.el.style.fontSize = `${size}px`;
       d.el.style.opacity = rpx > 26 ? '1' : '0'; // hide when the district is tiny on screen
@@ -267,7 +271,11 @@ export function MapView({ scene }: { scene: Scene | null }) {
               overlay.current.appendChild(el);
             }
             el.textContent = key.toUpperCase();
-            districtRef.current = { spot: [spot.x, spot.y], r: spot.r, el };
+            // Measure text width once at a reference size; ratio lets placeAll
+            // size the watermark to fit without a reflow every frame.
+            el.style.fontSize = '100px';
+            const ratio = el.offsetWidth / 100 || 3;
+            districtRef.current = { spot: [spot.x, spot.y], r: spot.r, ratio, el };
           }
 
           map.fitBounds(boundsOf(feature.geometry), {
