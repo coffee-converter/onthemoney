@@ -37,8 +37,9 @@ def build_answer_from_trace(engine: Engine, trace: list[dict],
     # An answer assembled from deterministic analytical tools is grounded by
     # construction, even when there is no single district total to verify.
     _GROUNDED = {"state_field", "industry_breakdown", "top_employers",
-                 "donor_geography", "find_candidate", "render_map", "map_state",
-                 "map_nation", "highlight_district"}
+                 "donor_geography", "find_candidate", "funding_timeline",
+                 "donor_size_breakdown", "top_candidates", "race_summary",
+                 "render_map", "map_state", "map_nation", "highlight_district"}
     grounded = any(
         step["type"] == "tool_result" and step["name"] in _GROUNDED
         and not step["payload"].get("insufficient", False)

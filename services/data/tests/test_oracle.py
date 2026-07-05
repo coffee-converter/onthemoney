@@ -7,6 +7,7 @@ from otm_data.oracle import (
     resolve_candidate, committees_for_candidate, total_raised, top_donors,
     candidate_finance, contributions_by_state, district_candidates,
     classify_industry, industry_breakdown, top_employers, state_field,
+    search_candidates, funding_timeline, donor_size_breakdown, top_candidates,
 )
 from otm_data.load import load_candidate_totals
 
@@ -133,3 +134,42 @@ def test_top_donors_excludes_memo_and_orders(db_engine):
     assert donors[0].name == "DOE, JOHN"
     assert donors[0].amount == Decimal("500.00")
     assert donors[0].state == "AZ"
+
+
+def test_funding_timeline(db_engine):
+    _seed(db_engine)
+    rows = funding_timeline(db_engine, "H2AZ06099")
+    assert rows
+    by_month = {r.month: r for r in rows}
+    assert "2024-06" in by_month  # the $500 gift dated 06152024
+    assert by_month["2024-06"].amount == Decimal("500.00")  # $1000 memo excluded
+    assert by_month["2024-06"].count == 1
+
+
+def test_donor_size_breakdown(db_engine):
+    _seed(db_engine)
+    load_candidate_totals(db_engine, ["H2AZ06099|2024|1500.00|800.00"])
+    res = donor_size_breakdown(db_engine, "H2AZ06099")
+    assert res["individual_total"] == 800.0
+    assert res["unitemized_small_dollar"] == 300.0  # 800 individual - 500 itemized
+    assert any(b["range"] == "200_to_999" and b["amount"] == 500.0
+               for b in res["itemized_buckets"])
+
+
+def test_top_candidates_ranked(db_engine):
+    _seed(db_engine)
+    top = top_candidates(db_engine, metric="itemized", limit=25)
+    assert top
+    vals = [t.value for t in top]
+    assert vals == sorted(vals, reverse=True)
+    assert any(t.cand_id == "H2AZ06099" for t in top)
+    load_candidate_totals(db_engine, ["H2AZ06099|2024|1500.00|800.00"])
+    byrec = top_candidates(db_engine, metric="receipts", limit=25)
+    assert any(t.cand_id == "H2AZ06099" and t.value == Decimal("1500.00") for t in byrec)
+
+
+def test_search_candidates_by_name(db_engine):
+    _seed(db_engine)
+    matches = search_candidates(db_engine, "Ciscomani Juan")
+    hit = [m for m in matches if m.cand_id == "H2AZ06099"]
+    assert hit and hit[0].state == "AZ" and hit[0].district == "06"

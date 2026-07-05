@@ -7,7 +7,8 @@ from otm_agent.scene import build_scene
 from otm_agent.config import get_settings
 from otm_data.oracle import (
     contributions_by_state, industry_breakdown, top_employers, state_field,
-    state_totals, search_candidates,
+    state_totals, search_candidates, funding_timeline, donor_size_breakdown,
+    top_candidates, district_candidates,
 )
 
 
@@ -68,6 +69,49 @@ def _find_candidate(engine: Engine, args: dict) -> dict:
         {"cand_id": m.cand_id, "name": m.name, "state": m.state,
          "district": m.district, "party": m.party,
          "itemized": f"{m.itemized:.2f}"} for m in matches]}
+
+
+def _funding_timeline(engine: Engine, args: dict) -> dict:
+    rows = funding_timeline(engine, args["cand_id"])
+    return {"cand_id": args["cand_id"], "insufficient": len(rows) == 0,
+            "timeline": [{"month": r.month, "amount": float(r.amount),
+                          "count": r.count} for r in rows]}
+
+
+def _donor_size(engine: Engine, args: dict) -> dict:
+    res = donor_size_breakdown(engine, args["cand_id"])
+    res["insufficient"] = res["individual_total"] == 0 and not res["itemized_buckets"]
+    return res
+
+
+def _top_candidates(engine: Engine, args: dict) -> dict:
+    metric = args.get("metric") or "itemized"
+    limit = min(int(args.get("limit") or 10), 25)
+    rows = top_candidates(engine, metric=metric, limit=limit)
+    return {"metric": metric, "insufficient": len(rows) == 0,
+            "candidates": [{"cand_id": r.cand_id, "name": r.name,
+                            "district": f"{r.state}-{r.district}", "party": r.party,
+                            "value": float(r.value)} for r in rows]}
+
+
+def _race_summary(engine: Engine, args: dict) -> dict:
+    state = args["state"].upper()
+    district = str(args["district"]).zfill(2)
+    cands = district_candidates(engine, state=state, district=district)
+    if not cands:
+        return {"state": state, "district": district, "insufficient": True,
+                "candidates": []}
+    total = sum(float(c.itemized) for c in cands)
+    leader = float(cands[0].itemized)
+    runner = float(cands[1].itemized) if len(cands) > 1 else 0.0
+    return {
+        "state": state, "district": district,
+        "candidates": [{"cand_id": c.cand_id, "name": c.name, "party": c.party,
+                        "itemized": round(float(c.itemized))} for c in cands],
+        "leader_gap": round(leader - runner),
+        "leader_margin_pct": round((leader - runner) / leader * 100, 1) if leader else 0.0,
+        "total_itemized": round(total),
+    }
 
 
 def _donor_geography(engine: Engine, args: dict) -> dict:
@@ -303,6 +347,57 @@ _SPECS = [
             "required": ["cand_id"],
         },
         handler=_donor_geography,
+    ),
+    ToolSpec(
+        name="funding_timeline",
+        description="A candidate's itemized money by calendar month (YYYY-MM) with "
+                    "counts. Use for 'when did the money come in', fundraising ramp, "
+                    "quarter-end surges, or late money. Needs a cand_id.",
+        input_schema={
+            "type": "object",
+            "properties": {"cand_id": {"type": "string", "description": "FEC candidate id"}},
+            "required": ["cand_id"],
+        },
+        handler=_funding_timeline,
+    ),
+    ToolSpec(
+        name="donor_size_breakdown",
+        description="Small-dollar vs large-dollar split: the unitemized small-dollar "
+                    "total, the small-dollar share (%), and itemized size buckets "
+                    "(<$200, $200-999, $1000-2899, $2900+). Use for 'is this candidate "
+                    "grassroots-funded' or small- vs big-money questions. Needs a cand_id.",
+        input_schema={
+            "type": "object",
+            "properties": {"cand_id": {"type": "string", "description": "FEC candidate id"}},
+            "required": ["cand_id"],
+        },
+        handler=_donor_size,
+    ),
+    ToolSpec(
+        name="top_candidates",
+        description="Nationwide ranking of House candidates by a money metric: "
+                    "'itemized' (itemized individual sum), 'receipts' (official total "
+                    "raised), or 'individual' (official from individuals). Use for "
+                    "'best-funded in the country', 'top raisers nationwide'. Returns "
+                    "the top N with district and party.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "metric": {"type": "string", "enum": ["itemized", "receipts", "individual"],
+                           "description": "Ranking metric"},
+                "limit": {"type": "integer", "description": "How many to return (max 25)"},
+            },
+        },
+        handler=_top_candidates,
+    ),
+    ToolSpec(
+        name="race_summary",
+        description="The whole field in one House district: every candidate with "
+                    "itemized totals, the leader's money gap over the runner-up, and "
+                    "the leader's margin (%). Use for 'how competitive is <district>' "
+                    "or the money gap between candidates in a seat.",
+        input_schema=_STATE_DISTRICT,
+        handler=_race_summary,
     ),
     ToolSpec(
         name="top_employers",

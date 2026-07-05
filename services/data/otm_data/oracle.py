@@ -228,6 +228,100 @@ def search_candidates(engine: Engine, name: str, *, election_yr: int = 2024,
 
 
 @dataclass
+class TimelineEntry:
+    month: str
+    amount: Decimal
+    count: int
+
+
+def funding_timeline(engine: Engine, cand_id: str, *,
+                     election_yr: int = 2024) -> list[TimelineEntry]:
+    # Itemized individual money by calendar month - the time dimension of a
+    # candidate's fundraising (ramp, end-of-quarter surges, late money).
+    with engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT to_char(date_trunc('month', ct.transaction_dt), 'YYYY-MM') AS mon, "
+            "  SUM(ct.amount) AS amt, COUNT(*) AS cnt FROM contributions ct "
+            "JOIN candidate_committee cc ON cc.cmte_id = ct.cmte_id "
+            "WHERE cc.cand_id = :c AND cc.election_yr = :yr "
+            "  AND COALESCE(ct.memo_cd, '') <> 'X' AND ct.transaction_dt IS NOT NULL "
+            "GROUP BY mon ORDER BY mon"
+        ), {"c": cand_id, "yr": election_yr}).all()
+    return [TimelineEntry(month=r[0], amount=Decimal(r[1]), count=int(r[2]))
+            for r in rows]
+
+
+def donor_size_breakdown(engine: Engine, cand_id: str, *,
+                         election_yr: int = 2024) -> dict:
+    # Small-dollar vs large-dollar split. The real grassroots money is the
+    # unitemized remainder (individual_total minus the itemized detail we hold),
+    # so report that alongside itemized size buckets.
+    with engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT CASE WHEN ct.amount < 200 THEN 'under_200' "
+            "  WHEN ct.amount < 1000 THEN '200_to_999' "
+            "  WHEN ct.amount < 2900 THEN '1000_to_2899' "
+            "  ELSE '2900_plus' END AS bucket, "
+            "  SUM(ct.amount) AS amt, COUNT(*) AS cnt FROM contributions ct "
+            "JOIN candidate_committee cc ON cc.cmte_id = ct.cmte_id "
+            "WHERE cc.cand_id = :c AND cc.election_yr = :yr "
+            "  AND COALESCE(ct.memo_cd, '') <> 'X' GROUP BY bucket"
+        ), {"c": cand_id, "yr": election_yr}).all()
+    itemized_buckets = {r[0]: (Decimal(r[1]), int(r[2])) for r in rows}
+    itemized_sum = sum((v[0] for v in itemized_buckets.values()), Decimal(0))
+    fin = candidate_finance(engine, cand_id, election_yr=election_yr)
+    individual = fin.individual_total if fin else Decimal(0)
+    unitemized = individual - itemized_sum
+    if unitemized < 0:
+        unitemized = Decimal(0)
+    small = unitemized + itemized_buckets.get("under_200", (Decimal(0), 0))[0]
+    return {
+        "individual_total": float(individual),
+        "unitemized_small_dollar": float(unitemized),
+        "small_dollar_share_pct": round(float(small / individual) * 100, 1)
+        if individual else 0.0,
+        "itemized_buckets": [
+            {"range": k, "amount": float(v[0]), "count": v[1]}
+            for k, v in sorted(itemized_buckets.items())
+        ],
+    }
+
+
+@dataclass
+class RankedCandidate:
+    cand_id: str
+    name: str
+    state: str
+    district: str
+    party: str
+    value: Decimal
+
+
+def top_candidates(engine: Engine, *, metric: str = "itemized", limit: int = 10,
+                   election_yr: int = 2024) -> list[RankedCandidate]:
+    # Nationwide ranking of House candidates by a chosen money metric.
+    base = ("SELECT c.cand_id, c.name, c.office_state, c.district, c.party, {val} AS v "
+            "FROM candidates c ")
+    if metric in ("receipts", "individual"):
+        col = "receipts" if metric == "receipts" else "individual_total"
+        sql = base.format(val=f"COALESCE(MAX(t.{col}), 0)") + (
+            "LEFT JOIN candidate_totals t ON t.cand_id = c.cand_id AND t.cycle = :yr ")
+    else:  # itemized
+        sql = base.format(val="COALESCE(SUM(ct.amount), 0)") + (
+            "LEFT JOIN candidate_committee cc "
+            "  ON cc.cand_id = c.cand_id AND cc.election_yr = c.election_yr "
+            "LEFT JOIN contributions ct "
+            "  ON ct.cmte_id = cc.cmte_id AND COALESCE(ct.memo_cd, '') <> 'X' ")
+    sql += ("WHERE c.office = 'H' AND c.election_yr = :yr "
+            "GROUP BY c.cand_id, c.name, c.office_state, c.district, c.party "
+            "ORDER BY v DESC LIMIT :lim")
+    with engine.connect() as conn:
+        rows = conn.execute(text(sql), {"yr": election_yr, "lim": limit}).all()
+    return [RankedCandidate(cand_id=r[0], name=r[1], state=r[2], district=r[3],
+                            party=r[4], value=Decimal(r[5])) for r in rows]
+
+
+@dataclass
 class EmployerTotal:
     employer: str
     amount: Decimal
