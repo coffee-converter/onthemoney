@@ -5,8 +5,20 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { applyScene, type MapLike } from '../lib/scene';
 import type { Scene } from '../lib/types';
 
-const STYLE =
-  process.env.NEXT_PUBLIC_MAP_STYLE || 'https://demotiles.maplibre.org/style.json';
+// A raster style renders map images directly (no vector-tile worker pipeline),
+// which is the most reliable option across environments.
+const RASTER_STYLE = {
+  version: 8 as const,
+  sources: {
+    osm: {
+      type: 'raster' as const,
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution: '(c) OpenStreetMap contributors',
+    },
+  },
+  layers: [{ id: 'osm', type: 'raster' as const, source: 'osm' }],
+};
 
 export function MapView({ scene }: { scene: Scene | null }) {
   const container = useRef<HTMLDivElement>(null);
@@ -15,17 +27,28 @@ export function MapView({ scene }: { scene: Scene | null }) {
 
   useEffect(() => {
     if (!container.current || mapRef.current) return;
+    const el = container.current;
     const map = new maplibregl.Map({
-      container: container.current,
-      style: STYLE,
-      center: [-98, 39],
-      zoom: 3,
+      container: el,
+      style: RASTER_STYLE as maplibregl.StyleSpecification,
+      center: [-88, 42],
+      zoom: 6,
     });
     map.on('load', () => {
       ready.current = true;
+      map.resize();
     });
+    map.on('error', (e) => console.error('maplibre', e?.error ?? e));
+
+    // Keep the canvas matched to the pane, which is sized by flex.
+    const ro = new ResizeObserver(() => map.resize());
+    ro.observe(el);
+    const t = setTimeout(() => map.resize(), 300);
+
     mapRef.current = map;
     return () => {
+      clearTimeout(t);
+      ro.disconnect();
       map.remove();
       mapRef.current = null;
       ready.current = false;

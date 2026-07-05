@@ -6,7 +6,7 @@ import type { Scene } from '../lib/types';
 
 const MapView = dynamic(
   () => import('../components/MapView').then((m) => m.MapView),
-  { ssr: false },
+  { ssr: false, loading: () => <div className="map map-loading">Loading map</div> },
 );
 
 export default function Home() {

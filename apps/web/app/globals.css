@@ -21,10 +21,17 @@ body {
   font-family: ui-sans-serif, system-ui, sans-serif;
 }
 
+body {
+  height: 100vh;
+}
+
 .topnav {
   display: flex;
+  align-items: center;
   gap: 1rem;
-  padding: 0.6rem 1rem;
+  height: 48px;
+  box-sizing: border-box;
+  padding: 0 1rem;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
 }
@@ -36,21 +43,31 @@ body {
 }
 
 .layout {
-  display: grid;
-  grid-template-columns: 1fr 420px;
-  height: calc(100vh - 49px);
+  display: flex;
+  height: calc(100vh - 48px);
 }
 
 .map-pane {
   position: relative;
+  flex: 1;
+  min-width: 0;
 }
 
 .map {
-  position: absolute;
-  inset: 0;
+  width: 100%;
+  height: calc(100vh - 48px);
+  background: #0b0f14;
+}
+
+.map-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
 }
 
 .rail {
+  flex: 0 0 420px;
   border-left: 1px solid var(--line);
   padding: 1.25rem;
   overflow-y: auto;
