@@ -1,17 +1,18 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   applyScene, FLOWS_SOURCE, BUBBLES_SOURCE, FLOWS_HIT_LAYER, type MapLike,
 } from '../lib/scene';
+import { placeLabels, largestRing, labelSpot } from '../lib/labels';
+import { STATE_CENTROIDS } from '../lib/stateCentroids';
 import type { Scene } from '../lib/types';
 
 // CARTO dark basemap (free, no API key). A muted dark canvas so the money
 // flows and district glow on top.
 const DARK_STYLE = {
   version: 8 as const,
-  glyphs: '/fonts/{fontstack}/{range}.pbf', // bundled locally in public/fonts
   sources: {
     carto: {
       type: 'raster' as const,
@@ -46,11 +47,72 @@ function boundsOf(geom: { type: string; coordinates: unknown }): maplibregl.LngL
   return [[minX, minY], [maxX, maxY]];
 }
 
+interface StateLabel {
+  state: string;
+  origin: [number, number];
+  amount: number;
+  el: HTMLDivElement;
+}
+
+interface District {
+  spot: [number, number]; // pole of inaccessibility, lng/lat
+  r: number; // inscribed radius, degrees
+  el: HTMLDivElement;
+}
+
 export function MapView({ scene }: { scene: Scene | null }) {
   const container = useRef<HTMLDivElement>(null);
+  const overlay = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
   const ready = useRef(false);
+  const hubRef = useRef<[number, number] | null>(null);
+  const labelsRef = useRef<StateLabel[]>([]);
+  const districtRef = useRef<District | null>(null);
+
+  // Reposition every overlay element against the current camera. Runs on every
+  // map move so labels track the viewport and the watermark rescales.
+  const placeAll = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const cv = map.getCanvas();
+    const W = cv.clientWidth;
+    const H = cv.clientHeight;
+
+    const hub = hubRef.current;
+    const labels = labelsRef.current;
+    if (hub && labels.length) {
+      const hubPt = map.project(hub);
+      const placements = placeLabels(
+        labels.map((l) => ({ state: l.state, origin: l.origin, amount: l.amount })),
+        hubPt,
+        (ll) => map.project(ll),
+        W,
+        H,
+      );
+      const by = new Map(placements.map((p) => [p.state, p]));
+      for (const l of labels) {
+        const p = by.get(l.state);
+        if (p?.visible) {
+          l.el.style.transform = `translate(${p.x}px, ${p.y}px) translate(-50%, -50%)`;
+          l.el.style.opacity = '1';
+        } else {
+          l.el.style.opacity = '0';
+        }
+      }
+    }
+
+    const d = districtRef.current;
+    if (d) {
+      const c = map.project(d.spot);
+      const edge = map.project([d.spot[0], d.spot[1] + d.r]);
+      const rpx = Math.hypot(edge.x - c.x, edge.y - c.y);
+      const size = Math.max(16, Math.min(rpx * 0.85, 260));
+      d.el.style.transform = `translate(${c.x}px, ${c.y}px) translate(-50%, -50%)`;
+      d.el.style.fontSize = `${size}px`;
+      d.el.style.opacity = rpx > 26 ? '1' : '0'; // hide when the district is tiny on screen
+    }
+  }, []);
 
   useEffect(() => {
     if (!container.current || mapRef.current) return;
@@ -64,8 +126,10 @@ export function MapView({ scene }: { scene: Scene | null }) {
     map.on('load', () => {
       ready.current = true;
       map.resize();
+      placeAll();
     });
     map.on('error', (e) => console.error('maplibre', e?.error ?? e));
+    map.on('move', placeAll);
 
     // Hover tooltips on the money flows and state bubbles.
     const popup = new maplibregl.Popup({
@@ -103,7 +167,10 @@ export function MapView({ scene }: { scene: Scene | null }) {
       map.on('click', layer, show); // tap support on touch devices
     }
 
-    const ro = new ResizeObserver(() => map.resize());
+    const ro = new ResizeObserver(() => {
+      map.resize();
+      placeAll();
+    });
     ro.observe(el);
     const t = setTimeout(() => map.resize(), 300);
 
@@ -115,7 +182,7 @@ export function MapView({ scene }: { scene: Scene | null }) {
       mapRef.current = null;
       ready.current = false;
     };
-  }, []);
+  }, [placeAll]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -132,6 +199,25 @@ export function MapView({ scene }: { scene: Scene | null }) {
       } else {
         markerRef.current.setLngLat(center);
       }
+
+      // Rebuild the state-label overlay for this scene.
+      const cont = overlay.current;
+      if (cont) {
+        for (const l of labelsRef.current) l.el.remove();
+        labelsRef.current = [];
+        const home = scene.highlight.state.toUpperCase();
+        for (const f of scene.flows) {
+          const st = f.state.toUpperCase();
+          const origin = STATE_CENTROIDS[st];
+          if (!origin) continue;
+          const lab = document.createElement('div');
+          lab.className = `otm-label ${st === home ? 'is-in' : 'is-out'}`;
+          lab.textContent = st;
+          cont.appendChild(lab);
+          labelsRef.current.push({ state: st, origin, amount: parseFloat(f.total) || 0, el: lab });
+        }
+      }
+      hubRef.current = center;
 
       let framed = false;
       try {
@@ -170,6 +256,20 @@ export function MapView({ scene }: { scene: Scene | null }) {
               FLOWS_SOURCE,
             );
           }
+
+          // District-code watermark, placed in the largest open area.
+          const spot = labelSpot(largestRing(feature.geometry));
+          if (overlay.current) {
+            let el = districtRef.current?.el;
+            if (!el) {
+              el = document.createElement('div');
+              el.className = 'otm-district-code';
+              overlay.current.appendChild(el);
+            }
+            el.textContent = key.toUpperCase();
+            districtRef.current = { spot: [spot.x, spot.y], r: spot.r, el };
+          }
+
           map.fitBounds(boundsOf(feature.geometry), {
             padding: 70,
             duration: 1400,
@@ -183,11 +283,16 @@ export function MapView({ scene }: { scene: Scene | null }) {
       if (!framed) {
         map.flyTo({ center, zoom: scene.camera.zoom, essential: true });
       }
+      placeAll();
     };
 
     if (ready.current) run();
     else map.once('load', run);
-  }, [scene]);
+  }, [scene, placeAll]);
 
-  return <div ref={container} className="map" />;
+  return (
+    <div ref={container} className="map">
+      <div ref={overlay} className="otm-overlay" />
+    </div>
+  );
 }
