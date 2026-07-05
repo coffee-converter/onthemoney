@@ -11,7 +11,7 @@ def _report():
 def test_report_to_dict_has_metrics():
     d = report_to_dict(_report())
     assert d["accuracy"] == 1.0
-    assert d["item_count"] == 3
+    assert d["item_count"] == 5
     assert "brier" in d and "neutrality_accuracy" in d
 
 

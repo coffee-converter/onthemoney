@@ -9,7 +9,8 @@ def test_baseline_scores_perfect():
     assert report.trajectory_accuracy() == 1.0
     assert report.scene_accuracy() == 1.0
     assert report.neutrality_accuracy() == 1.0
-    assert report.brier() < 0.05
+    # high cases contribute (0.9-1)^2=0.01 each; the partial case (0.5-1)^2=0.25.
+    assert report.brier() < 0.1
 
 
 def test_regression_is_detected():

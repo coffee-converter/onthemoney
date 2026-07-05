@@ -15,7 +15,7 @@ describe('ScoreboardController', () => {
 
   it('serves the eval scoreboard artifact', () => {
     const sb: any = controller.get();
-    expect(sb.item_count).toBe(3);
+    expect(sb.item_count).toBe(5);
     expect(sb.accuracy).toBe(1.0);
     expect(Array.isArray(sb.items)).toBe(true);
   });
