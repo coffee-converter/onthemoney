@@ -8,6 +8,14 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Load keys from a local, gitignored .env if present (ANTHROPIC_API_KEY, FEC_API_KEY).
+if [ -f "$ROOT/.env" ]; then
+  set -a
+  . "$ROOT/.env"
+  set +a
+fi
+
 PG="$(brew --prefix postgresql@16)/bin"
 PGDATA="$ROOT/services/data/.pgdata"
 LOGS="$ROOT/.devlogs"
