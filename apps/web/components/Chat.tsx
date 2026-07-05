@@ -24,6 +24,10 @@ const FRIENDLY: Record<string, { active: string; done: string }> = {
   top_donors: { active: 'Ranking the largest donors', done: 'Top donors ranked' },
   industry_breakdown: { active: 'Breaking donations down by industry', done: 'Industry breakdown ready' },
   top_employers: { active: 'Ranking the top employers', done: 'Top employers ranked' },
+  state_field: { active: 'Gathering the statewide field', done: 'Statewide field ready' },
+  map_state: { active: 'Mapping the state', done: 'State map ready' },
+  render_map: { active: 'Drawing the map', done: 'Map drawn' },
+  highlight_district: { active: 'Locating the district', done: 'District located' },
   emit_scene: { active: 'Mapping the money by state', done: 'Map rendered' },
 };
 

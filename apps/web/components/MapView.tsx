@@ -409,8 +409,8 @@ export function MapView({
         .sort((a, b) => a.dist - b.dist);
       const flowsSrc = map.getSource(FLOWS_SOURCE) as maplibregl.GeoJSONSource | undefined;
       const bubblesSrc = map.getSource(BUBBLES_SOURCE) as maplibregl.GeoJSONSource | undefined;
-      const GROW = 700; // each beam draws over ~0.7s so the motion is legible
-      const stagger = Math.min(140, 2600 / Math.max(items.length, 1));
+      const GROW = 440; // each beam draws quickly but still visibly
+      const stagger = Math.min(90, 1700 / Math.max(items.length, 1));
       let start = 0;
       const frame = (now: number) => {
         if (!start) start = now;

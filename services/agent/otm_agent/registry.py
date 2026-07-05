@@ -121,6 +121,36 @@ def _highlight_district(engine: Engine, args: dict) -> dict:
             "highlight": {"state": state, "district": district}, "flows": []}
 
 
+_PARTY_HEX = {"D": "#2166ac", "R": "#b2182b", "I": "#7b3fa0", "L": "#d99a2b", "G": "#43b26a"}
+_PARTY_LETTER = {"DEM": "D", "DFL": "D", "DNL": "D", "REP": "R", "GOP": "R",
+                 "IND": "I", "NPA": "I", "NON": "I", "UN": "I", "LIB": "L",
+                 "GRE": "G", "CON": "C"}
+
+
+def _map_state(engine: Engine, args: dict) -> dict:
+    # Build a whole-state map server-side so the agent never hand-transcribes a
+    # long list (which it sometimes gets wrong). The agent just picks encoding.
+    state = args["state"].upper()
+    entries = state_field(engine, state)
+    color_by = args.get("color_by", "party")
+    shape = "points" if args.get("shape") == "points" else "regions"
+    label = args.get("label", True)
+    items: list[dict] = []
+    for e in entries:
+        if district_centroid(state, e.district) is None:
+            continue
+        pl = _PARTY_LETTER.get((e.party or "").upper())
+        item = {"place": f"{state}-{e.district}", "value": float(e.itemized),
+                "tooltip": [e.name, pl or e.party, f"${float(e.itemized):,.0f}"]}
+        if color_by == "party" and pl in _PARTY_HEX:
+            item["color"] = _PARTY_HEX[pl]
+        if label:
+            item["label"] = e.district
+        items.append(item)
+    field = "points" if shape == "points" else "regions"
+    return _render_map(engine, {field: items, "title": f"{state} House districts"})
+
+
 def _emit_scene(engine: Engine, args: dict) -> dict:
     state, district = args["state"], args["district"]
     res = resolve_entity(engine, state=state, district=district)
@@ -245,6 +275,27 @@ _SPECS = [
             },
         },
         handler=_render_map,
+    ),
+    ToolSpec(
+        name="map_state",
+        description="Build a whole-state House map in one call (reliable - prefer "
+                    "this over hand-building render_map for 'show/map a state'). "
+                    "Params: state (two-letter), color_by ('party' or 'money'), shape "
+                    "('regions' choropleth or 'points' bubbles), label (true to draw "
+                    "district numbers). Tooltips (candidate, party, total) are added.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "state": {"type": "string", "description": "Two-letter state code"},
+                "color_by": {"type": "string", "enum": ["party", "money", "value"],
+                             "description": "Color by party, or shade by money"},
+                "shape": {"type": "string", "enum": ["regions", "points"],
+                          "description": "Choropleth polygons or bubbles"},
+                "label": {"type": "boolean", "description": "Draw district numbers"},
+            },
+            "required": ["state"],
+        },
+        handler=_map_state,
     ),
     ToolSpec(
         name="emit_scene",
