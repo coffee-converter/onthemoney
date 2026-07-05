@@ -183,6 +183,42 @@ button:disabled {
   color: #3ddc84;
 }
 
+.trace-spinner {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: otm-spin 0.7s linear infinite;
+}
+
+@keyframes otm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dots::after {
+  content: '';
+  animation: otm-dots 1.4s steps(1, end) infinite;
+}
+
+@keyframes otm-dots {
+  0% {
+    content: '';
+  }
+  25% {
+    content: '.';
+  }
+  50% {
+    content: '..';
+  }
+  75% {
+    content: '...';
+  }
+}
+
 .answer {
   margin-top: 1rem;
   padding: 1rem;

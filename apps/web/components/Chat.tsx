@@ -104,6 +104,9 @@ export function Chat({ onScene }: { onScene: (s: Scene) => void }) {
     });
   }
 
+  const acts = activities(steps);
+  const mapDone = steps.some((s) => s.type === 'tool_result' && s.name === 'emit_scene');
+
   return (
     <div className="chat">
       <h1>On The Money</h1>
@@ -120,20 +123,27 @@ export function Chat({ onScene }: { onScene: (s: Scene) => void }) {
       </form>
 
       <ol className="trace">
-        {activities(steps).map((a, i) => (
+        {busy && acts.length === 0 && (
+          <li className="trace-active">
+            <span className="trace-spinner" />
+            <span>Understanding your question</span>
+            <span className="dots" />
+          </li>
+        )}
+        {acts.map((a, i) => (
           <li key={i} className={a.done ? 'trace-done' : 'trace-active'}>
-            <span className="trace-icon">{a.done ? '✓' : '○'}</span>
-            {friendly(a.name, a.done)}
+            {a.done ? <span className="trace-icon">✓</span> : <span className="trace-spinner" />}
+            <span>{friendly(a.name, a.done)}</span>
+            {!a.done && <span className="dots" />}
           </li>
         ))}
-        {busy &&
-          !answer &&
-          steps.some((s) => s.type === 'tool_result' && s.name === 'emit_scene') && (
-            <li className="trace-active">
-              <span className="trace-icon">○</span>
-              Compiling the donor breakdown
-            </li>
-          )}
+        {busy && !answer && mapDone && (
+          <li className="trace-active">
+            <span className="trace-spinner" />
+            <span>Compiling the donor breakdown</span>
+            <span className="dots" />
+          </li>
+        )}
       </ol>
 
       {answer && (
