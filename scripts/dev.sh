@@ -19,6 +19,8 @@ if "$PG/pg_isready" -q -h localhost -p 5433 2>/dev/null; then
 else
   "$PG/pg_ctl" -D "$PGDATA" -o "-p 5433 -k /tmp" -l "$PGDATA/server.log" start
 fi
+# tests run against a separate database so they never clobber dev data
+"$PG/createdb" -p 5433 -U otm -h localhost otm_test 2>/dev/null || true
 
 echo "[2/4] Ingesting a bounded FEC slice (set FEC_API_KEY for reliability)"
 if ( cd "$ROOT/services/data" \

@@ -28,9 +28,13 @@ PG=$(brew --prefix postgresql@16)/bin
 "$PG/initdb" -D .pgdata -U otm -A trust
 "$PG/pg_ctl" -D .pgdata -o "-p 5433" -l .pgdata/server.log start
 "$PG/createdb" -p 5433 -U otm -h localhost otm
+"$PG/createdb" -p 5433 -U otm -h localhost otm_test   # tests use a separate db
 uv sync --extra dev
 uv run pytest -v
 ```
+
+Tests connect to `otm_test` (override with `OTM_TEST_DATABASE_URL`) so running
+them never touches the `otm` database you load real data into.
 
 Stop it later with `"$PG/pg_ctl" -D .pgdata stop`.
 

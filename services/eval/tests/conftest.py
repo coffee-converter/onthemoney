@@ -21,7 +21,7 @@ ITCONT = [
 @pytest.fixture()
 def db_engine():
     url = os.environ.get("OTM_TEST_DATABASE_URL",
-                         "postgresql+psycopg://otm:otm@localhost:5433/otm")
+                         "postgresql+psycopg://otm:otm@localhost:5433/otm_test")
     engine = get_engine(url)
     apply_schema(engine)
     with engine.begin() as conn:
