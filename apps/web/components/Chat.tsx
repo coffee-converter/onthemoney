@@ -33,6 +33,7 @@ const FRIENDLY: Record<string, { active: string; done: string }> = {
   state_field: { active: 'Gathering the statewide field', done: 'Statewide field ready' },
   map_state: { active: 'Mapping the state', done: 'State map ready' },
   map_nation: { active: 'Mapping the whole country', done: 'National map ready' },
+  map_candidates: { active: 'Mapping the top candidates', done: 'Candidate map ready' },
   render_map: { active: 'Drawing the map', done: 'Map drawn' },
   highlight_district: { active: 'Locating the district', done: 'District located' },
   emit_scene: { active: 'Mapping the money by state', done: 'Map rendered' },
@@ -149,9 +150,8 @@ export function Chat({
       }
       if (
         step.type === 'tool_result' &&
-        ['emit_scene', 'render_map', 'map_state', 'map_nation', 'highlight_district'].includes(
-          step.name ?? '',
-        ) &&
+        ['emit_scene', 'render_map', 'map_state', 'map_nation', 'map_candidates',
+          'highlight_district'].includes(step.name ?? '') &&
         step.payload &&
         !('insufficient' in step.payload)
       ) {

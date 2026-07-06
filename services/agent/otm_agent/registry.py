@@ -270,6 +270,24 @@ def _map_nation(engine: Engine, args: dict) -> dict:
     return scene
 
 
+def _map_candidates(engine: Engine, args: dict) -> dict:
+    # Reliable nationwide scatter of ranked candidates, built server-side so the
+    # agent never hand-transcribes the list into render_map (which it gets wrong).
+    metric = args.get("metric") or "receipts"
+    limit = min(int(args.get("limit") or 15), 40)
+    rows = top_candidates(engine, metric=metric, limit=limit)
+    pts = []
+    for r in rows:
+        pl = _PARTY_LETTER.get((r.party or "").upper())
+        name = r.name.split(",")[0].title() if "," in r.name else r.name
+        pt = {"place": f"{r.state}-{r.district}", "value": float(r.value),
+              "tooltip": [name, pl or r.party, f"${float(r.value):,.0f}"]}
+        if pl in _PARTY_HEX:
+            pt["color"] = _PARTY_HEX[pl]
+        pts.append(pt)
+    return _render_map(engine, {"points": pts, "title": "Best-funded House candidates"})
+
+
 def _emit_scene(engine: Engine, args: dict) -> dict:
     state, district = args["state"], args["district"]
     res = resolve_entity(engine, state=state, district=district)
@@ -510,6 +528,23 @@ _SPECS = [
             },
         },
         handler=_map_nation,
+    ),
+    ToolSpec(
+        name="map_candidates",
+        description="Map a nationwide ranking of House candidates as bubbles, built "
+                    "server-side - use this (never hand-build render_map) for 'map the "
+                    "top/best-funded candidates'. Params: metric ('receipts', "
+                    "'itemized', 'individual'), limit (max 40). Bubbles are sized by "
+                    "the metric and colored by party, with name/party/total tooltips.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "metric": {"type": "string", "enum": ["receipts", "itemized", "individual"],
+                           "description": "Ranking metric that sizes the bubbles"},
+                "limit": {"type": "integer", "description": "How many candidates (max 40)"},
+            },
+        },
+        handler=_map_candidates,
     ),
     ToolSpec(
         name="emit_scene",
