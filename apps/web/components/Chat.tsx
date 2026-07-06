@@ -9,6 +9,17 @@ import { Citations } from './Citations';
 
 const SAMPLE = 'Who funds the representative in IL-5?';
 
+// Shown on the empty state to teach the range of questions and let a first-time
+// visitor start with one click.
+const EXAMPLES = [
+  'Who funds the representative in NY-14?',
+  "Where does Marjorie Taylor Greene's money come from?",
+  'What industries fund NY-14?',
+  'Show House funding by state as a heat map',
+  'Who are the 10 best-funded House candidates?',
+  'How competitive is the race in TX-15?',
+];
+
 function money(x: string | null | undefined): string | null {
   if (!x) return null;
   const n = parseFloat(x);
@@ -84,9 +95,9 @@ export function Chat({
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [busy, setBusy] = useState(false);
 
-  function submit(e: FormEvent) {
-    e.preventDefault();
-    if (!query.trim() || busy) return;
+  function runQuery(q: string) {
+    if (!q.trim() || busy) return;
+    setQuery(q);
     setSteps([]);
     setAnswer(null);
     setBusy(true);
@@ -95,7 +106,7 @@ export function Chat({
     let cand: Candidate | null = null;
     let districtKey: string | undefined;
     let fundingCandId = '';
-    streamAsk(query, (step) => {
+    streamAsk(q, (step) => {
       if (step.type === 'answer') {
         const a = step as unknown as Answer;
         setAnswer(a);
@@ -161,7 +172,13 @@ export function Chat({
     });
   }
 
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    runQuery(query);
+  }
+
   const acts = activities(steps);
+  const idle = !busy && !answer && steps.length === 0;
 
   return (
     <div className="chat">
@@ -182,6 +199,23 @@ export function Chat({
       </div>
 
       <div className="chat-results">
+      {idle && (
+        <div className="intro">
+          <p className="intro-lead">
+            On The Money traces where U.S. House campaign money comes from. Ask in plain
+            English and the agent pulls the 2024 FEC filings, works through the data, and
+            draws the answer on the map. Every figure is sourced and confidence-scored.
+          </p>
+          <p className="intro-label">Try one of these</p>
+          <div className="intro-chips">
+            {EXAMPLES.map((q) => (
+              <button key={q} type="button" className="chip" onClick={() => runQuery(q)}>
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <ol className="trace">
         {acts.map((a, i) => (
           <li key={i} className={a.done ? 'trace-done' : 'trace-active'}>

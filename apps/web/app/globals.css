@@ -716,3 +716,52 @@ td {
 .error {
   color: #e79b6e;
 }
+
+.intro {
+  padding: 2px 2px 8px;
+}
+
+.intro-lead {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 6px 0 20px;
+}
+
+.intro-label {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.65;
+  margin: 0 0 10px;
+}
+
+.intro-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chip {
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.05s ease;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+  background: #11171f;
+}
+
+.chip:active {
+  transform: translateY(1px);
+}
