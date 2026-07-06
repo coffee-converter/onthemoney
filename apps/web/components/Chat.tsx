@@ -139,6 +139,22 @@ export function Chat({
         cand = { cand_id: c?.cand_id, name: c?.name ?? '', party: c?.party, district: districtKey };
         onCandidate(cand);
       }
+      // Name-based lookups resolve through find_candidate, not resolve_entity, so
+      // pick the top match as the active candidate too.
+      if (
+        step.type === 'tool_result' &&
+        step.name === 'find_candidate' &&
+        !step.payload?.insufficient
+      ) {
+        const m = (step.payload?.matches as
+          | { cand_id?: string; name?: string; party?: string; state?: string; district?: string }[]
+          | undefined)?.[0];
+        if (m?.cand_id) {
+          districtKey = `${String(m.state ?? '').toUpperCase()}-${String(m.district ?? '').padStart(2, '0')}`;
+          cand = { cand_id: m.cand_id, name: m.name ?? '', party: m.party, district: districtKey };
+          onCandidate(cand);
+        }
+      }
       if (step.type === 'tool_use' && step.name === 'funding_summary') {
         fundingCandId = String(step.input?.cand_id ?? '');
       }
