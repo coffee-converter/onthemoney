@@ -28,12 +28,25 @@ body {
 .topnav {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
   height: 48px;
   box-sizing: border-box;
   padding: 0 1rem;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
+}
+
+.topnav .brand {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.topnav-links {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .topnav a {

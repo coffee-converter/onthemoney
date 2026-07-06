@@ -183,7 +183,6 @@ export function Chat({
   return (
     <div className="chat">
       <div className="chat-top">
-      <h1>On The Money</h1>
       <p className="subtle">Ask how House campaign money flows. 2024 cycle.</p>
       <form onSubmit={submit}>
         <input

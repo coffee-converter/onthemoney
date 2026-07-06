@@ -11,8 +11,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body>
         <nav className="topnav">
-          <a href="/">Atlas</a>
-          <a href="/scoreboard">Scoreboard</a>
+          <a href="/" className="brand">On The Money</a>
+          <div className="topnav-links">
+            <a href="/">Atlas</a>
+            <a href="/scoreboard">Scoreboard</a>
+          </div>
         </nav>
         {children}
       </body>
