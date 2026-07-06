@@ -1,6 +1,15 @@
 import type { RosterCandidate } from '../lib/types';
 import { formatName, partyLabel, partyColor, money } from '../lib/format';
 
+// Surname only, title-cased, for a compact pill (FEC names are "LAST, FIRST").
+function surname(fecName: string): string {
+  const last = (fecName.split(',')[0] || '').trim();
+  return last.toLowerCase().replace(/(^|[\s-])(\w)/g, (_, sep, ch) => sep + ch.toUpperCase());
+}
+
+// A compact candidate switcher pinned over the map: one pill per candidate in
+// the district, the active one filled with its party color. Clicking a pill
+// swaps the map to that candidate's funding view.
 export function Roster({
   candidates,
   activeCandId,
@@ -10,42 +19,31 @@ export function Roster({
   activeCandId?: string;
   onPick: (c: RosterCandidate) => void;
 }) {
-  if (candidates.length < 2) return null; // nothing to compare
-  const max = Math.max(...candidates.map((c) => parseFloat(c.itemized) || 0), 1);
+  if (candidates.length < 2) return null; // nothing to switch between
+
   return (
-    <div className="roster">
-      <div className="roster-title">Candidates in this district</div>
-      <ul>
+    <div className="switcher">
+      <div className="switcher-label">Candidates in this district</div>
+      <div className="switcher-pills">
         {candidates.map((c) => {
-          const amt = parseFloat(c.itemized) || 0;
-          const pct = Math.max(4, (amt / max) * 100);
           const active = c.cand_id === activeCandId;
+          const color = partyColor(c.party);
           const p = partyLabel(c.party);
           return (
-            <li key={c.cand_id}>
-              <button
-                type="button"
-                className={active ? 'roster-row active' : 'roster-row'}
-                onClick={() => onPick(c)}
-              >
-                <div className="roster-head">
-                  <span className="roster-name">{formatName(c.name)}</span>
-                  {p && (
-                    <span className="roster-party" style={{ color: partyColor(c.party) }}>
-                      {p}
-                    </span>
-                  )}
-                  <span className="roster-amt">{money(c.itemized)}</span>
-                </div>
-                <div className="roster-bar">
-                  <span style={{ width: `${pct}%`, background: partyColor(c.party) }} />
-                </div>
-              </button>
-            </li>
+            <button
+              key={c.cand_id}
+              type="button"
+              className={active ? 'pill active' : 'pill'}
+              style={active ? { background: color, borderColor: color } : { borderColor: color }}
+              onClick={() => onPick(c)}
+              title={`${formatName(c.name)}${p ? ` (${p})` : ''} · ${money(c.itemized)}`}
+            >
+              <span className="pill-dot" style={{ background: color }} />
+              <span className="pill-name">{surname(c.name)}</span>
+            </button>
           );
         })}
-      </ul>
-      <div className="roster-note">Ranked by itemized individual receipts.</div>
+      </div>
     </div>
   );
 }

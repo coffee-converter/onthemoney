@@ -1,5 +1,5 @@
 'use client';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useState, type FormEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { streamAsk } from '../lib/api';
@@ -83,12 +83,10 @@ export function Chat({
   onScene,
   onCandidate,
   onReset,
-  roster,
 }: {
   onScene: (s: Scene) => void;
   onCandidate: (c: Candidate | null) => void;
   onReset?: () => void;
-  roster?: ReactNode;
 }) {
   const [query, setQuery] = useState(SAMPLE);
   const [steps, setSteps] = useState<Step[]>([]);
@@ -194,7 +192,6 @@ export function Chat({
           {busy ? 'Working' : 'Ask'}
         </button>
       </form>
-      {roster}
       </div>
 
       <div className="chat-results">

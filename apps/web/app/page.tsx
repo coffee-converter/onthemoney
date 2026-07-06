@@ -61,6 +61,7 @@ export default function Home() {
     <main className="layout">
       <section className="map-pane">
         <MapView scene={scene} candidate={candidate} />
+        <Roster candidates={roster} activeCandId={candidate?.cand_id} onPick={pickCandidate} />
         {scene && (
           <div className="map-legend">
             <span>
@@ -75,14 +76,7 @@ export default function Home() {
         )}
       </section>
       <aside className="rail">
-        <Chat
-          onScene={setScene}
-          onCandidate={setCandidate}
-          onReset={() => setRoster([])}
-          roster={
-            <Roster candidates={roster} activeCandId={candidate?.cand_id} onPick={pickCandidate} />
-          }
-        />
+        <Chat onScene={setScene} onCandidate={setCandidate} onReset={() => setRoster([])} />
       </aside>
     </main>
   );
