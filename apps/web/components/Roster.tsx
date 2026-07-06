@@ -13,17 +13,19 @@ function surname(fecName: string): string {
 export function Roster({
   candidates,
   activeCandId,
+  district,
   onPick,
 }: {
   candidates: RosterCandidate[];
   activeCandId?: string;
+  district?: string;
   onPick: (c: RosterCandidate) => void;
 }) {
   if (candidates.length < 2) return null; // nothing to switch between
 
   return (
     <div className="switcher">
-      <div className="switcher-label">Candidates in this district</div>
+      <div className="switcher-label">Candidates in {district || 'this district'}</div>
       <div className="switcher-pills">
         {candidates.map((c) => {
           const active = c.cand_id === activeCandId;
@@ -38,7 +40,11 @@ export function Roster({
               onClick={() => onPick(c)}
               title={`${formatName(c.name)}${p ? ` (${p})` : ''} · ${money(c.itemized)}`}
             >
-              <span className="pill-dot" style={{ background: color }} />
+              {p && (
+                <span className="pill-letter" style={{ color }}>
+                  {p}
+                </span>
+              )}
               <span className="pill-name">{surname(c.name)}</span>
             </button>
           );

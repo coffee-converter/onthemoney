@@ -61,7 +61,12 @@ export default function Home() {
     <main className="layout">
       <section className="map-pane">
         <MapView scene={scene} candidate={candidate} />
-        <Roster candidates={roster} activeCandId={candidate?.cand_id} onPick={pickCandidate} />
+        <Roster
+          candidates={roster}
+          activeCandId={candidate?.cand_id}
+          district={districtKey}
+          onPick={pickCandidate}
+        />
         {scene && (
           <div className="map-legend">
             <span>
