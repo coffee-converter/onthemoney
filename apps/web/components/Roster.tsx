@@ -23,12 +23,18 @@ export function Roster({
 }) {
   if (candidates.length < 2) return null; // nothing to switch between
 
+  // The default district view (emit_scene) shows the leader, so when nothing
+  // specific is selected, mark the leader (top of the ranked roster) active.
+  const activeId = candidates.some((c) => c.cand_id === activeCandId)
+    ? activeCandId
+    : candidates[0]?.cand_id;
+
   return (
     <div className="switcher">
       <div className="switcher-label">Candidates in {district || 'this district'}</div>
       <div className="switcher-pills">
         {candidates.map((c) => {
-          const active = c.cand_id === activeCandId;
+          const active = c.cand_id === activeId;
           const color = partyColor(c.party);
           const p = partyLabel(c.party);
           return (
