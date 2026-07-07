@@ -2,6 +2,7 @@
 import { useState, type FormEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { track } from '@vercel/analytics';
 import { streamAsk } from '../lib/api';
 import type { Answer, Candidate, Scene, Step, Telemetry } from '../lib/types';
 import { ConfidenceChip } from './ConfidenceChip';
@@ -97,6 +98,7 @@ export function Chat({
 
   function runQuery(q: string) {
     if (!q.trim() || busy) return;
+    track('ask', { queryLength: q.length });
     setQuery(q);
     setSteps([]);
     setAnswer(null);

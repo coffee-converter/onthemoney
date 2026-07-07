@@ -1,5 +1,6 @@
 import './globals.css';
 import type { ReactNode } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 
 export const metadata = {
   title: 'On The Money',
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </div>
         </nav>
         {children}
+        <Analytics />
       </body>
     </html>
   );
