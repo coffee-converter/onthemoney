@@ -1,0 +1,17 @@
+# Agent — PRIVATE (no public [http_service]); reachable only on the Fly 6PN
+# network at <app>.internal:8000. Deploy from the repo root so the Dockerfile
+# can bundle the otm_data path dependency:
+#   fly deploy --config services/agent/fly.toml --dockerfile services/agent/Dockerfile .
+app = "onthemoney-agent"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  OTM_DEMO_ENABLED = "1"
+  OTM_DEMO_DAILY_USD = "5.00"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
