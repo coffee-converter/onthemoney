@@ -15,8 +15,12 @@ describe('ScoreboardController', () => {
 
   it('serves the eval scoreboard artifact', () => {
     const sb: any = controller.get();
-    expect(sb.item_count).toBe(5);
-    expect(sb.accuracy).toBe(1.0);
+    // Shape-based so regenerating the artifact (case count changes) doesn't break it.
     expect(Array.isArray(sb.items)).toBe(true);
+    expect(sb.item_count).toBeGreaterThan(0);
+    expect(sb.item_count).toBe(sb.items.length);
+    expect(typeof sb.accuracy).toBe('number');
+    expect(sb.accuracy).toBeGreaterThanOrEqual(0);
+    expect(sb.accuracy).toBeLessThanOrEqual(1);
   });
 });
