@@ -1,7 +1,8 @@
 import json
+import os
 from datetime import datetime, timezone
 from typing import Callable
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 from sqlalchemy import Engine
@@ -32,6 +33,39 @@ def _final_text(trace: list[dict]) -> str:
     return ""
 
 
+def require_proxy_secret(request: Request) -> None:
+    """Verify the shared secret the edge proxy forwards as `x-otm-proxy-secret`.
+
+    If `OTM_PROXY_SECRET` is set (non-empty) the header must match, else 403.
+    If it is unset/empty the check is a no-op (dev/test default), so the request
+    is allowed — this keeps local runs and the existing suite working."""
+    secret = os.environ.get("OTM_PROXY_SECRET")
+    if secret and request.headers.get("x-otm-proxy-secret") != secret:
+        raise HTTPException(status_code=403, detail="forbidden")
+
+
+def _telemetry_cost(trace: list[dict]) -> float:
+    for step in trace:
+        if step["type"] == "telemetry":
+            return float(step.get("est_cost_usd", 0) or 0)
+    return 0.0
+
+
+def _demo_precheck(eng, cfg, query: str, request: Request):
+    """Shared length + rate + budget gate for the paid endpoints when the guard
+    is enabled. Returns `(msg, now)` where `msg` is a refusal string (or None if
+    the request may proceed) and `now` is the UTC timestamp to bill against."""
+    now = datetime.now(timezone.utc)
+    if len(query) > cfg.max_query_chars:
+        return "That question is too long for the demo. Please shorten it.", now
+    ip = dg.client_ip(request.headers)
+    if dg.rate_limited(eng, cfg, ip, now):
+        return dg.RATE_MSG, now
+    if dg.budget_exceeded(eng, cfg, now.date()):
+        return dg.BUDGET_MSG, now
+    return None, now
+
+
 def create_app(engine: Engine | None = None,
                client_factory: Callable[[], object] | None = None) -> FastAPI:
     app = FastAPI(title="On The Money agent service")
@@ -42,15 +76,29 @@ def create_app(engine: Engine | None = None,
     def health():
         return {"status": "ok"}
 
-    @app.post("/ask")
-    def ask(req: AskRequest):
+    @app.post("/ask", dependencies=[Depends(require_proxy_secret)])
+    def ask(req: AskRequest, request: Request):
         eng = app.state.engine
+        cfg = dg.load_demo_config()
+        if cfg.enabled:
+            msg, now = _demo_precheck(eng, cfg, req.query, request)
+            if msg is not None:
+                # Refusal carries the limit/breaker text as a normal-shaped answer
+                # with an empty trace, mirroring the {"trace", "answer"} response.
+                return {"trace": [], "answer": dg.limit_answer(msg)}
+            client = app.state.client_factory()
+            result = run_query(client, req.query, eng)
+            cost = _telemetry_cost(result.trace)
+            if cost:
+                dg.bill(eng, now.date(), cost)
+            answer = build_answer_from_trace(eng, result.trace, result.final_text)
+            return {"trace": result.trace, "answer": answer}
         client = app.state.client_factory()
         result = run_query(client, req.query, eng)
         answer = build_answer_from_trace(eng, result.trace, result.final_text)
         return {"trace": result.trace, "answer": answer}
 
-    @app.get("/ask/stream")
+    @app.get("/ask/stream", dependencies=[Depends(require_proxy_secret)])
     def ask_stream(query: str, request: Request):
         eng = app.state.engine
         cfg = dg.load_demo_config()
@@ -98,7 +146,13 @@ def create_app(engine: Engine | None = None,
             for step in stream_query(client, query, eng):
                 trace.append(step)
                 if step["type"] == "telemetry":
+                    # Bill the MOMENT telemetry is observed: the tokens are spent
+                    # regardless of tool failures or whether the client stays, so
+                    # this must run inside the loop (a client that disconnects at
+                    # a later `yield` would otherwise skip billing on GeneratorExit).
                     cost = float(step.get("est_cost_usd", 0) or 0)
+                    if cost:
+                        dg.bill(eng, now.date(), cost)
                     if step.get("tool_failures", 0):
                         failed = True
                 if step["type"] == "tool_result" and "error" in step.get("payload", {}):
@@ -111,14 +165,15 @@ def create_app(engine: Engine | None = None,
             buffered.append(answer_msg)
             yield answer_msg
 
-            if cost:
-                dg.bill(eng, now.date(), cost)
+            # cache_put stays post-loop: caching is best-effort and skipping it on
+            # early disconnect is fine (unlike billing, which must never be skipped).
             if not failed:
                 dg.cache_put(eng, qhash, buffered)
 
         return EventSourceResponse(event_gen())
 
-    @app.get("/district/{state}/{district}/candidates")
+    @app.get("/district/{state}/{district}/candidates",
+             dependencies=[Depends(require_proxy_secret)])
     def district_roster(state: str, district: str):
         cands = district_candidates(app.state.engine, state=state.upper(),
                                     district=district)
@@ -131,7 +186,8 @@ def create_app(engine: Engine | None = None,
             for c in cands
         ]}
 
-    @app.get("/candidate/{cand_id}/scene")
+    @app.get("/candidate/{cand_id}/scene",
+             dependencies=[Depends(require_proxy_secret)])
     def candidate_scene(cand_id: str, state: str, district: str):
         eng = app.state.engine
         centroid = district_centroid(state.upper(), district)
@@ -146,7 +202,7 @@ def create_app(engine: Engine | None = None,
             "individual_total": f"{fin.individual_total:.2f}" if fin else None,
         }
 
-    @app.get("/admin/usage")
+    @app.get("/admin/usage", dependencies=[Depends(require_proxy_secret)])
     def admin_usage(request: Request):
         cfg = dg.load_demo_config()
         if not cfg.admin_secret or request.headers.get("x-admin-secret") != cfg.admin_secret:

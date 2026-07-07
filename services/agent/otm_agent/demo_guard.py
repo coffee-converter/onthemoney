@@ -133,7 +133,12 @@ def client_ip(headers) -> str:
     return "unknown"
 
 
+def limit_answer(text: str) -> dict:
+    """The answer body returned when a request is refused by the guard (length,
+    rate, or budget). Shaped like a normal answer so clients render it uniformly."""
+    return {"text": text, "confidence": "insufficient", "total": None,
+            "receipts": None, "individual_total": None, "citations": [], "scene": None}
+
+
 def limit_answer_event(text: str) -> dict:
-    answer = {"text": text, "confidence": "insufficient", "total": None,
-              "receipts": None, "individual_total": None, "citations": [], "scene": None}
-    return {"event": "answer", "data": json.dumps(answer)}
+    return {"event": "answer", "data": json.dumps(limit_answer(text))}
