@@ -1,10 +1,42 @@
 import './globals.css';
 import type { ReactNode } from 'react';
+import type { Metadata } from 'next';
 import { Analytics } from '@vercel/analytics/react';
 
-export const metadata = {
-  title: 'On The Money',
-  description: 'A conversational accountability atlas.',
+const DESCRIPTION =
+  'Ask a plain-English question about U.S. House campaign finance and get a grounded, cited, calibrated answer — drawn on a live map from real FEC filings.';
+
+export const metadata: Metadata = {
+  metadataBase: new URL('https://onthemoney.fyi'),
+  title: {
+    default: 'On The Money — U.S. House campaign finance atlas',
+    template: '%s · On The Money',
+  },
+  description: DESCRIPTION,
+  applicationName: 'On The Money',
+  keywords: [
+    'campaign finance',
+    'FEC filings',
+    'U.S. House of Representatives',
+    'political donations',
+    'money in politics',
+    'election data',
+    'donor geography',
+  ],
+  alternates: { canonical: '/' },
+  openGraph: {
+    type: 'website',
+    url: 'https://onthemoney.fyi',
+    siteName: 'On The Money',
+    title: 'On The Money — U.S. House campaign finance atlas',
+    description: DESCRIPTION,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'On The Money — U.S. House campaign finance atlas',
+    description: DESCRIPTION,
+  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

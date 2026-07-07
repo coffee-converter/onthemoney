@@ -357,7 +357,46 @@ export function MapView({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !scene) return;
+    if (!map) return;
+
+    // A new question clears the scene: wipe every overlay so the previous
+    // answer's highlight/flows/markers/labels/choropleth don't linger.
+    if (!scene) {
+      const clearMap = () => {
+        if (animRef.current) cancelAnimationFrame(animRef.current);
+        if (animTimeoutRef.current) clearTimeout(animTimeoutRef.current);
+        if (pulseRef.current) {
+          cancelAnimationFrame(pulseRef.current);
+          pulseRef.current = null;
+        }
+        if (map.getLayer('otm-district-fill'))
+          map.setPaintProperty('otm-district-fill', 'fill-opacity', 0.06);
+        if (map.getLayer('otm-district-line'))
+          map.setPaintProperty('otm-district-line', 'line-opacity', 0.9);
+        animatingRef.current = false;
+        for (const l of labelsRef.current) l.el.remove();
+        labelsRef.current = [];
+        for (const l of regionLabelsRef.current) l.el.remove();
+        regionLabelsRef.current = [];
+        if (markerRef.current) {
+          markerRef.current.remove();
+          markerRef.current = null;
+        }
+        if (districtRef.current) districtRef.current.el.style.opacity = '0';
+        hubRef.current = null;
+        for (const id of ['otm-district', FLOWS_SOURCE, BUBBLES_SOURCE, OVERLAY_SRC, REGION_SRC]) {
+          const s = map.getSource(id) as maplibregl.GeoJSONSource | undefined;
+          if (s) s.setData(EMPTY_FC as never);
+        }
+        if (cardRef.current) {
+          cardRef.current.dataset.show = '0';
+          cardRef.current.style.opacity = '0';
+        }
+      };
+      if (ready.current) clearMap();
+      else map.once('load', clearMap);
+      return;
+    }
 
     const placeMarker = (at: [number, number]) => {
       if (!markerRef.current) {

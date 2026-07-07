@@ -81,7 +81,15 @@ export default function Home() {
         )}
       </section>
       <aside className="rail">
-        <Chat onScene={setScene} onCandidate={setCandidate} onReset={() => setRoster([])} />
+        <Chat
+          onScene={setScene}
+          onCandidate={setCandidate}
+          onReset={() => {
+            setScene(null);
+            setCandidate(null);
+            setRoster([]);
+          }}
+        />
       </aside>
     </main>
   );
