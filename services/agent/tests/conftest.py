@@ -8,7 +8,8 @@ from otm_data.load import (
 )
 
 TABLES = ["contributions", "candidate_committee", "committees", "candidates",
-          "candidate_totals"]
+          "candidate_totals",
+          "demo_rate_limit", "demo_budget_ledger", "demo_answer_cache"]
 
 # Standard AZ-06 seed (mirrors the data package fixtures; kept inline so the agent
 # package tests do not reach into the data package's test tree).
