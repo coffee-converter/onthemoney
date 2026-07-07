@@ -34,3 +34,23 @@ def test_config_enabled_and_overrides(monkeypatch):
 def test_query_hash_normalizes():
     assert query_hash("Where is IL-04?") == query_hash("  where is  il-04  ")
     assert query_hash("Who funds AOC?") != query_hash("Who funds MTG?")
+
+
+from datetime import datetime, timezone
+from otm_agent.demo_guard import DemoConfig, rate_limited
+
+_CFG = DemoConfig(enabled=True, daily_usd=5.0, max_query_chars=500,
+                  rate_per_min=3, rate_per_day=5, max_tokens=1024, admin_secret=None)
+
+
+def test_rate_limit_trips_after_per_minute_cap(seeded_engine):
+    now = datetime(2026, 7, 7, 14, 3, 0, tzinfo=timezone.utc)
+    results = [rate_limited(seeded_engine, _CFG, "1.1.1.1", now) for _ in range(4)]
+    assert results == [False, False, False, True]  # 4th within the minute trips
+
+
+def test_rate_limit_isolated_per_ip(seeded_engine):
+    now = datetime(2026, 7, 7, 15, 0, 0, tzinfo=timezone.utc)
+    for _ in range(3):
+        rate_limited(seeded_engine, _CFG, "2.2.2.2", now)
+    assert rate_limited(seeded_engine, _CFG, "3.3.3.3", now) is False  # different IP

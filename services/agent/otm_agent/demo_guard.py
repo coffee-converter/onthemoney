@@ -6,6 +6,8 @@ import hashlib
 import os
 import re
 from dataclasses import dataclass
+from datetime import datetime
+from sqlalchemy import Engine, text
 
 SCHEMA_VERSION = 1  # bump to invalidate all cached traces on a shape change
 
@@ -36,3 +38,23 @@ def load_demo_config() -> DemoConfig:
 def query_hash(query: str) -> str:
     norm = re.sub(r"\s+", " ", query.strip().lower()).rstrip("?.!").strip()
     return hashlib.sha256(norm.encode("utf-8")).hexdigest()
+
+
+_BUMP = text(
+    "INSERT INTO demo_rate_limit (ip, window_key, count) VALUES (:ip, :wk, 1) "
+    "ON CONFLICT (ip, window_key) DO UPDATE SET count = demo_rate_limit.count + 1 "
+    "RETURNING count"
+)
+
+
+def _bump(conn, ip: str, window_key: str) -> int:
+    return conn.execute(_BUMP, {"ip": ip, "wk": window_key}).scalar_one()
+
+
+def rate_limited(engine: Engine, cfg: DemoConfig, ip: str, now: datetime) -> bool:
+    minute_key = "m:" + now.strftime("%Y-%m-%dT%H:%M")
+    day_key = "d:" + now.strftime("%Y-%m-%d")
+    with engine.begin() as conn:
+        per_min = _bump(conn, ip, minute_key)
+        per_day = _bump(conn, ip, day_key)
+    return per_min > cfg.rate_per_min or per_day > cfg.rate_per_day
