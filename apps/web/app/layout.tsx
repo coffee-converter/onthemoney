@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { Analytics } from '@vercel/analytics/react';
 
 const DESCRIPTION =
-  'Ask a plain-English question about U.S. House campaign finance and get a grounded, cited, calibrated answer — drawn on a live map from real FEC filings.';
+  'Ask a plain-English question about U.S. House campaign finance. An AI agent resolves it against real FEC filings — grounded, cited, and calibrated — and draws the money on a live map.';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://onthemoney.fyi'),
