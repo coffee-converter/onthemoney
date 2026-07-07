@@ -1,7 +1,8 @@
 import json
+import time
 from dataclasses import dataclass
 from sqlalchemy import Engine
-from otm_agent.config import get_settings
+from otm_agent.config import get_settings, estimate_cost
 from otm_agent.registry import tool_specs, get_spec
 
 SYSTEM_PROMPT = (
@@ -80,6 +81,7 @@ SYSTEM_PROMPT = (
 class AgentResult:
     trace: list[dict]
     final_text: str
+    telemetry: dict | None = None
 
 
 def anthropic_tools() -> list[dict]:
@@ -100,12 +102,20 @@ def stream_query(client, prompt: str, engine: Engine, *, model: str | None = Non
     tools = anthropic_tools()
     messages: list[dict] = [{"role": "user", "content": prompt}]
     final_text = ""
+    started = time.perf_counter()
+    input_tokens = output_tokens = turns = tool_calls = tool_failures = 0
+    per_tool: list[dict] = []
 
     for _ in range(max_turns):
+        turns += 1
         resp = client.messages.create(
             model=model, max_tokens=1024, system=SYSTEM_PROMPT,
             tools=tools, messages=messages,
         )
+        usage = getattr(resp, "usage", None)
+        if usage is not None:
+            input_tokens += getattr(usage, "input_tokens", 0) or 0
+            output_tokens += getattr(usage, "output_tokens", 0) or 0
         assistant_content: list[dict] = []
         tool_results: list[dict] = []
         turn_text = ""
@@ -116,10 +126,20 @@ def stream_query(client, prompt: str, engine: Engine, *, model: str | None = Non
                 yield {"type": "text", "text": block.text}
                 assistant_content.append({"type": "text", "text": block.text})
             elif block.type == "tool_use":
+                tool_calls += 1
                 yield {"type": "tool_use", "name": block.name, "input": block.input}
                 assistant_content.append({"type": "tool_use", "id": block.id,
                                           "name": block.name, "input": block.input})
-                payload = get_spec(block.name).handler(engine, block.input)
+                t0 = time.perf_counter()
+                try:
+                    payload = get_spec(block.name).handler(engine, block.input)
+                    ok = True
+                except Exception as exc:  # surface, count, and recover — never kill the stream
+                    payload = {"error": f"{type(exc).__name__}: {exc}"}
+                    ok = False
+                    tool_failures += 1
+                per_tool.append({"name": block.name,
+                                 "ms": round((time.perf_counter() - t0) * 1000), "ok": ok})
                 yield {"type": "tool_result", "name": block.name, "payload": payload}
                 tool_results.append({"type": "tool_result", "tool_use_id": block.id,
                                      "content": json.dumps(payload)})
@@ -133,6 +153,18 @@ def stream_query(client, prompt: str, engine: Engine, *, model: str | None = Non
         final_text = turn_text
         break
 
+    yield {
+        "type": "telemetry",
+        "model": model,
+        "turns": turns,
+        "tool_calls": tool_calls,
+        "tool_failures": tool_failures,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "elapsed_ms": round((time.perf_counter() - started) * 1000),
+        "per_tool": per_tool,
+        "est_cost_usd": round(estimate_cost(model, input_tokens, output_tokens), 4),
+    }
     yield {"type": "result", "text": final_text}
 
 
@@ -141,9 +173,12 @@ def run_query(client, prompt: str, engine: Engine, *, model: str | None = None,
     """Collect `stream_query` into a full `AgentResult`."""
     trace: list[dict] = []
     final_text = ""
+    telemetry: dict | None = None
     for step in stream_query(client, prompt, engine, model=model,
                              max_turns=max_turns):
         trace.append(step)
         if step["type"] == "result":
             final_text = step["text"]
-    return AgentResult(trace=trace, final_text=final_text)
+        elif step["type"] == "telemetry":
+            telemetry = step
+    return AgentResult(trace=trace, final_text=final_text, telemetry=telemetry)
