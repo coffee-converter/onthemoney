@@ -68,3 +68,47 @@ def test_ask_stream_emits_events(seeded_engine):
     assert "event: tool_result" in body
     assert "event: answer" in body
     assert "500.00" in body
+
+
+import json
+from datetime import date
+from otm_agent.demo_guard import bill, query_hash
+
+
+def _events(resp):
+    out = []
+    for block in resp.text.strip().split("\n\n"):
+        ev = {ln.split(": ", 1)[0]: ln.split(": ", 1)[1]
+              for ln in block.splitlines() if ": " in ln}
+        if ev:
+            out.append(ev)
+    return out
+
+
+def test_stream_budget_breaker(monkeypatch, seeded_engine):
+    monkeypatch.setenv("OTM_DEMO_ENABLED", "1")
+    monkeypatch.setenv("OTM_DEMO_DAILY_USD", "1.00")
+    bill(seeded_engine, date.today(), 2.0)  # already over cap
+    app = create_app(engine=seeded_engine, client_factory=lambda: _FakeClient(_script()))
+    client = TestClient(app)
+    resp = client.get("/ask/stream", params={"query": "Who funds NY-14?"})
+    events = _events(resp)
+    assert any(e.get("event") == "answer" and "limit" in e.get("data", "").lower()
+               for e in events)
+
+
+def test_stream_cache_hit_skips_agent(monkeypatch, seeded_engine):
+    monkeypatch.setenv("OTM_DEMO_ENABLED", "1")
+    from otm_agent.demo_guard import cache_put
+    q = "Where is IL-04?"
+    cache_put(seeded_engine, query_hash(q),
+              [{"event": "answer", "data": json.dumps({"text": "CACHED", "confidence": "high",
+                "total": None, "receipts": None, "individual_total": None,
+                "citations": [], "scene": None})}])
+    # A client_factory that raises proves the agent is never called on a hit.
+    def _boom():
+        raise AssertionError("agent must not be called on cache hit")
+    app = create_app(engine=seeded_engine, client_factory=_boom)
+    client = TestClient(app)
+    resp = client.get("/ask/stream", params={"query": q})
+    assert "CACHED" in resp.text

@@ -1,6 +1,7 @@
 import json
+from datetime import datetime, timezone
 from typing import Callable
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 from sqlalchemy import Engine
@@ -8,6 +9,7 @@ from otm_agent.runtime import run_query, stream_query
 from otm_agent.response import build_answer_from_trace
 from otm_agent.geo import district_centroid
 from otm_agent.scene import build_scene
+from otm_agent import demo_guard as dg
 from otm_data.db import get_engine
 from otm_data.oracle import (
     district_candidates, contributions_by_state, candidate_finance,
@@ -49,17 +51,70 @@ def create_app(engine: Engine | None = None,
         return {"trace": result.trace, "answer": answer}
 
     @app.get("/ask/stream")
-    def ask_stream(query: str):
+    def ask_stream(query: str, request: Request):
         eng = app.state.engine
-        client = app.state.client_factory()
+        cfg = dg.load_demo_config()
 
         async def event_gen():
+            # Fast path: guard disabled (dev/tests) — behave exactly as before.
+            if not cfg.enabled:
+                client = app.state.client_factory()
+                trace: list[dict] = []
+                for step in stream_query(client, query, eng):
+                    trace.append(step)
+                    yield {"event": step["type"], "data": json.dumps(step)}
+                answer = build_answer_from_trace(eng, trace, _final_text(trace))
+                yield {"event": "answer", "data": json.dumps(answer)}
+                return
+
+            ip = dg.client_ip(request.headers)
+            now = datetime.now(timezone.utc)
+
+            if len(query) > cfg.max_query_chars:
+                yield dg.limit_answer_event(
+                    "That question is too long for the demo. Please shorten it.")
+                return
+            if dg.rate_limited(eng, cfg, ip, now):
+                yield dg.limit_answer_event(dg.RATE_MSG)
+                return
+
+            qhash = dg.query_hash(query)
+            cached = dg.cache_get(eng, qhash)
+            if cached is not None:
+                for msg in cached:  # zero-cost replay; not billed
+                    yield msg
+                return
+
+            if dg.budget_exceeded(eng, cfg, now.date()):
+                yield dg.limit_answer_event(dg.BUDGET_MSG)
+                return
+
+            # Miss: run the agent, buffering messages to cache on a clean finish.
+            client = app.state.client_factory()
             trace: list[dict] = []
+            buffered: list[dict] = []
+            cost = 0.0
+            failed = False
             for step in stream_query(client, query, eng):
                 trace.append(step)
-                yield {"event": step["type"], "data": json.dumps(step)}
+                if step["type"] == "telemetry":
+                    cost = float(step.get("est_cost_usd", 0) or 0)
+                    if step.get("tool_failures", 0):
+                        failed = True
+                if step["type"] == "tool_result" and "error" in step.get("payload", {}):
+                    failed = True
+                msg = {"event": step["type"], "data": json.dumps(step)}
+                buffered.append(msg)
+                yield msg
             answer = build_answer_from_trace(eng, trace, _final_text(trace))
-            yield {"event": "answer", "data": json.dumps(answer)}
+            answer_msg = {"event": "answer", "data": json.dumps(answer)}
+            buffered.append(answer_msg)
+            yield answer_msg
+
+            if cost:
+                dg.bill(eng, now.date(), cost)
+            if not failed:
+                dg.cache_put(eng, qhash, buffered)
 
         return EventSourceResponse(event_gen())
 

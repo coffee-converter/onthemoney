@@ -117,3 +117,23 @@ def usage_summary(engine: Engine, day: date) -> dict:
         cached = conn.execute(_CACHED).scalar_one()
     return {"spent_usd": float(spent or 0), "requests_today": int(requests),
             "cached_answers": int(cached)}
+
+
+RATE_MSG = ("You're asking faster than this public demo allows. Give it a minute "
+            "and try again — the map and scoreboard still work in the meantime.")
+BUDGET_MSG = ("On The Money's public demo has reached today's usage limit. It "
+              "resets at midnight UTC — thanks for trying it! The map, scoreboard, "
+              "and district lookups still work.")
+
+
+def client_ip(headers) -> str:
+    fwd = headers.get("x-forwarded-for")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return "unknown"
+
+
+def limit_answer_event(text: str) -> dict:
+    answer = {"text": text, "confidence": "insufficient", "total": None,
+              "receipts": None, "individual_total": None, "citations": [], "scene": None}
+    return {"event": "answer", "data": json.dumps(answer)}
