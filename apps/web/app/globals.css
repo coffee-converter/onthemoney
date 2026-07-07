@@ -765,3 +765,12 @@ td {
 .regime { display: grid; grid-template-columns: 6rem 1fr auto; align-items: center; gap: 0.6rem; font-size: 0.85rem; }
 .regime-bar { background: rgba(255,255,255,0.08); border-radius: 3px; height: 0.5rem; }
 .regime-fill { display: block; height: 100%; background: #4c8bf5; border-radius: 3px; }
+
+.how { max-width: 46rem; margin: 0 auto; padding: 2rem 1.25rem; line-height: 1.55; }
+.how section { margin: 1.75rem 0; }
+.how h2 { font-size: 1.05rem; margin-bottom: 0.4rem; }
+.how-metrics { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0.5rem 0; font-size: 0.85rem; }
+.how-metrics span { background: rgba(255,255,255,0.06); padding: 0.2rem 0.5rem; border-radius: 4px; }
+.how-regression { margin-top: 1rem; border-left: 2px solid #4c8bf5; padding-left: 0.9rem; }
+.how-regression table { border-collapse: collapse; margin: 0.5rem 0; font-size: 0.85rem; }
+.how-regression th, .how-regression td { text-align: left; padding: 0.2rem 0.8rem 0.2rem 0; }

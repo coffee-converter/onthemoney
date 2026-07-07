@@ -15,6 +15,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <div className="topnav-links">
             <a href="/">Atlas</a>
             <a href="/scoreboard">Scoreboard</a>
+            <a href="/how-it-works">Under the hood</a>
           </div>
         </nav>
         {children}
