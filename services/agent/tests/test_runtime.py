@@ -164,3 +164,33 @@ def test_run_query_real_model(seeded_engine):
     names = [s["name"] for s in result.trace if s["type"] == "tool_use"]
     assert "resolve_entity" in names
     assert "500.00" in result.final_text
+
+
+from otm_agent.runtime import SYSTEM_PROMPT
+
+
+def test_system_prompt_refuses_off_topic():
+    low = SYSTEM_PROMPT.lower()
+    assert "refuse" in low or "decline" in low
+    assert "campaign finance" in low or "fec" in low
+
+
+def test_model_call_uses_configured_max_tokens(monkeypatch, seeded_engine):
+    monkeypatch.setenv("OTM_DEMO_AGENT_MAX_TOKENS", "256")
+    captured = {}
+
+    class _Resp:
+        stop_reason = "end_turn"
+        content = [type("B", (), {"type": "text", "text": "hi"})()]
+
+    class _Msgs:
+        def create(self, **kw):
+            captured.update(kw)
+            return _Resp()
+
+    class _Client:
+        messages = _Msgs()
+
+    from otm_agent.runtime import run_query
+    run_query(_Client(), "hello", seeded_engine)
+    assert captured["max_tokens"] == 256

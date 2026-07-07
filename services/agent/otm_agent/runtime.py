@@ -74,6 +74,9 @@ SYSTEM_PROMPT = (
     "If a district has no candidate or receipts, say so plainly. Always gather with "
     "at least one tool and write a brief answer - never reply with no tool call or "
     "empty text."
+    " If a request is not about U.S. House campaign finance, politely refuse and "
+    "steer the user back to what this tool can answer; never act as a general "
+    "assistant."
 )
 
 
@@ -108,8 +111,9 @@ def stream_query(client, prompt: str, engine: Engine, *, model: str | None = Non
 
     for _ in range(max_turns):
         turns += 1
+        from otm_agent.demo_guard import load_demo_config
         resp = client.messages.create(
-            model=model, max_tokens=1024, system=SYSTEM_PROMPT,
+            model=model, max_tokens=load_demo_config().max_tokens, system=SYSTEM_PROMPT,
             tools=tools, messages=messages,
         )
         usage = getattr(resp, "usage", None)
