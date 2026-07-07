@@ -1,8 +1,8 @@
-"""Deterministic recorded baseline: execute each golden case's expected tool
-trajectory against the DB (ground truth) and assemble the SystemOutput a correct
-system would produce. No LLM and no API key — this is the reference replay the CI
-gate grades against. The live model's job (choosing the trajectory) is measured
-separately by run_live.
+"""Derive each golden case's expected result from the oracle (ground truth) via
+derive_expected and assemble the SystemOutput a correct system would produce
+(tools_called is the case's expected trajectory). No LLM and no API key — this is
+the reference replay the CI gate grades against. The live model's job (choosing
+the trajectory) is measured separately by run_live.
 """
 from otm_eval.golden import GoldenItem
 from otm_eval.system import derive_expected

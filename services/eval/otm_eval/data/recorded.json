@@ -4628,6 +4628,21 @@
     "scene": null,
     "text": "The GA-91 representative has no itemized individual receipts recorded for 2024 in this dataset."
   },
+  "ia30-funds": {
+    "id": "ia30-funds",
+    "tools_called": [
+      "resolve_entity",
+      "funding_summary",
+      "emit_scene"
+    ],
+    "committees": [
+      "C00882951"
+    ],
+    "total": null,
+    "confidence": "partial",
+    "scene": null,
+    "text": "The IA-30 representative has no itemized individual receipts recorded for 2024 in this dataset."
+  },
   "az99-none": {
     "id": "az99-none",
     "tools_called": [

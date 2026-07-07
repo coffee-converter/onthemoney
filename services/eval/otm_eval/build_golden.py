@@ -12,10 +12,12 @@ from sqlalchemy import text
 
 # Every House district's leading candidate and its itemized total, in one query.
 # DISTINCT ON keeps the top candidate per district; memo_cd='X' is excluded to
-# match the oracle's definition of itemized receipts.
+# match the oracle's definition of itemized receipts. District is normalized
+# with LPAD to 2 chars so at-large seats stored as both "0" and "00" collapse
+# into a single district instead of double-counting.
 _LEADERS_SQL = text(
     "SELECT DISTINCT ON (st, di) st, di, itemized FROM ("
-    "  SELECT c.office_state AS st, c.district AS di, c.cand_id AS cid, "
+    "  SELECT c.office_state AS st, LPAD(c.district, 2, '0') AS di, c.cand_id AS cid, "
     "    COALESCE(SUM(ct.amount), 0) AS itemized "
     "  FROM candidates c "
     "  LEFT JOIN candidate_committee cc "
@@ -23,7 +25,7 @@ _LEADERS_SQL = text(
     "  LEFT JOIN contributions ct "
     "    ON ct.cmte_id = cc.cmte_id AND COALESCE(ct.memo_cd, '') <> 'X' "
     "  WHERE c.office = 'H' AND c.election_yr = :yr "
-    "  GROUP BY c.office_state, c.district, c.cand_id) s "
+    "  GROUP BY c.office_state, LPAD(c.district, 2, '0'), c.cand_id) s "
     "ORDER BY st, di, itemized DESC"
 )
 
@@ -74,4 +76,7 @@ def select_cases(engine, *, n_high: int = 16, n_partial: int = 4) -> list[dict]:
             "expected_committees": [], "expected_total": None, "expected_scene": None,
             "calibration_label": "insufficient",
         })
+    # Fail loudly if district normalization ever lets a real seat double-count.
+    ids = [c["id"] for c in cases]
+    assert len(ids) == len(set(ids)), f"duplicate golden ids: {ids}"
     return cases

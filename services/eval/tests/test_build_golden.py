@@ -17,6 +17,8 @@ def test_select_cases_from_seeded_engine(seeded_engine):
     az = next(c for c in cases if c["state"] == "AZ" and c["district"] == "06")
     assert az["expected_committees"] == ["C00770886"]
     assert az["expected_total"] == "500.00"
+    # Ids are unique (guards the district-normalization dedup).
+    assert len(cases) == len({c["id"] for c in cases})
     # Every case is constructible as a GoldenItem (exact field set).
     for c in cases:
         GoldenItem(**c)
