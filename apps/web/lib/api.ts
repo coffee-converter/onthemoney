@@ -1,6 +1,6 @@
 import type { ScoreboardData, Step, RosterCandidate, Scene } from './types';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const BASE = process.env.NEXT_PUBLIC_API_URL || '/api/bff';
 
 export const STREAM_EVENTS = ['tool_use', 'tool_result', 'text', 'result', 'telemetry', 'answer'];
 
