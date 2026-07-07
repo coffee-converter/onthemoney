@@ -1,11 +1,10 @@
 from otm_eval.golden import load_golden
 from otm_eval.system import load_recorded
 from otm_eval.runner import run_eval
+from otm_eval.gate_thresholds import MIN_ACCURACY, MAX_BRIER
 
 # The build gate: the recorded baseline must clear the accuracy and calibration
 # thresholds. A regression past these thresholds fails CI (spec 5.3).
-MIN_ACCURACY = 0.9
-MAX_BRIER = 0.2
 
 
 def test_ci_gate_baseline_passes():

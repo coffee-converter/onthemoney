@@ -1,0 +1,24 @@
+{
+  "case": "la01-funds",
+  "cases_affected": 16,
+  "clean_total": "15516512.00",
+  "broken_total": "13964860.80",
+  "before": {
+    "accuracy": 1.0,
+    "brier": 0.058,
+    "passes": true
+  },
+  "after": {
+    "accuracy": 0.333,
+    "brier": 0.698,
+    "passes": false
+  },
+  "delta": {
+    "accuracy": 0.667,
+    "brier": 0.64
+  },
+  "thresholds": {
+    "min_accuracy": 0.9,
+    "max_brier": 0.2
+  }
+}
