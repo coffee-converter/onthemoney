@@ -103,6 +103,8 @@ export interface ScoreboardData {
   scene_accuracy: number;
   neutrality_accuracy: number;
   brier: number;
+  answer_accuracy?: number;
+  by_regime?: Record<string, { count: number; accuracy: number }>;
   items: {
     id: string;
     correct: boolean;

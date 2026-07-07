@@ -1,13 +1,28 @@
 {
-  "item_count": 5,
+  "item_count": 24,
   "accuracy": 1.0,
   "trajectory_accuracy": 1.0,
   "scene_accuracy": 1.0,
   "neutrality_accuracy": 1.0,
-  "brier": 0.06999999999999999,
+  "brier": 0.057999999999999996,
+  "answer_accuracy": 1.0,
+  "by_regime": {
+    "high": {
+      "count": 16,
+      "accuracy": 1.0
+    },
+    "partial": {
+      "count": 4,
+      "accuracy": 1.0
+    },
+    "insufficient": {
+      "count": 4,
+      "accuracy": 1.0
+    }
+  },
   "items": [
     {
-      "id": "az06-funds",
+      "id": "la01-funds",
       "correct": true,
       "trajectory_ok": true,
       "scene_ok": true,
@@ -15,7 +30,7 @@
       "confidence": "high"
     },
     {
-      "id": "ca22-funds",
+      "id": "ca20-funds",
       "correct": true,
       "trajectory_ok": true,
       "scene_ok": true,
@@ -23,7 +38,7 @@
       "confidence": "high"
     },
     {
-      "id": "tx34-funds",
+      "id": "ca17-funds",
       "correct": true,
       "trajectory_ok": true,
       "scene_ok": true,
@@ -31,7 +46,135 @@
       "confidence": "high"
     },
     {
-      "id": "pa08-partial",
+      "id": "il08-funds",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "high"
+    },
+    {
+      "id": "mn06-funds",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "high"
+    },
+    {
+      "id": "wa03-funds",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "high"
+    },
+    {
+      "id": "co03-funds",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "high"
+    },
+    {
+      "id": "ca41-funds",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "high"
+    },
+    {
+      "id": "ny08-funds",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "high"
+    },
+    {
+      "id": "nj05-funds",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "high"
+    },
+    {
+      "id": "ny17-funds",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "high"
+    },
+    {
+      "id": "ak00-funds",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "high"
+    },
+    {
+      "id": "ca27-funds",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "high"
+    },
+    {
+      "id": "ny19-funds",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "high"
+    },
+    {
+      "id": "ny16-funds",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "high"
+    },
+    {
+      "id": "va07-funds",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "high"
+    },
+    {
+      "id": "ca53-funds",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "partial"
+    },
+    {
+      "id": "co50-funds",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "partial"
+    },
+    {
+      "id": "ga91-funds",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "partial"
+    },
+    {
+      "id": "ia30-funds",
       "correct": true,
       "trajectory_ok": true,
       "scene_ok": true,
@@ -40,6 +183,30 @@
     },
     {
       "id": "az99-none",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "insufficient"
+    },
+    {
+      "id": "tx99-none",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "insufficient"
+    },
+    {
+      "id": "ca99-none",
+      "correct": true,
+      "trajectory_ok": true,
+      "scene_ok": true,
+      "neutral_ok": true,
+      "confidence": "insufficient"
+    },
+    {
+      "id": "ny99-none",
       "correct": true,
       "trajectory_ok": true,
       "scene_ok": true,

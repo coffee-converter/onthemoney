@@ -3,6 +3,17 @@ from pathlib import Path
 from otm_eval.runner import Report
 
 
+def _by_regime(report: Report) -> dict:
+    out: dict[str, dict] = {}
+    for label in ("high", "partial", "insufficient"):
+        group = [r for r in report.items if r.confidence == label]
+        if not group:
+            continue
+        acc = sum(1 for r in group if r.correct) / len(group)
+        out[label] = {"count": len(group), "accuracy": round(acc, 3)}
+    return out
+
+
 def report_to_dict(report: Report) -> dict:
     return {
         "item_count": len(report.items),
@@ -11,6 +22,8 @@ def report_to_dict(report: Report) -> dict:
         "scene_accuracy": report.scene_accuracy(),
         "neutrality_accuracy": report.neutrality_accuracy(),
         "brier": report.brier(),
+        "answer_accuracy": report.accuracy(),
+        "by_regime": _by_regime(report),
         "items": [
             {"id": r.id, "correct": r.correct, "trajectory_ok": r.trajectory_ok,
              "scene_ok": r.scene_ok, "neutral_ok": r.neutral_ok,

@@ -39,6 +39,19 @@ export function ScoreboardView({ data }: { data: ScoreboardData }) {
         <Metric label="Neutrality" value={pct(data.neutrality_accuracy)} />
         <Metric label="Brier" value={data.brier.toFixed(3)} />
       </div>
+      {data.by_regime && (
+        <div className="regime-breakdown">
+          {Object.entries(data.by_regime).map(([label, r]) => (
+            <div key={label} className="regime">
+              <span className="regime-label">{label}</span>
+              <span className="regime-bar">
+                <span className="regime-fill" style={{ width: pct(r.accuracy) }} />
+              </span>
+              <span className="regime-num">{pct(r.accuracy)} · {r.count} cases</span>
+            </div>
+          ))}
+        </div>
+      )}
       <table>
         <thead>
           <tr>
