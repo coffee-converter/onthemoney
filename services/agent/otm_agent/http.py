@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timezone
 from typing import Callable
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 from sqlalchemy import Engine
@@ -145,6 +145,13 @@ def create_app(engine: Engine | None = None,
             "receipts": f"{fin.receipts:.2f}" if fin else None,
             "individual_total": f"{fin.individual_total:.2f}" if fin else None,
         }
+
+    @app.get("/admin/usage")
+    def admin_usage(request: Request):
+        cfg = dg.load_demo_config()
+        if not cfg.admin_secret or request.headers.get("x-admin-secret") != cfg.admin_secret:
+            raise HTTPException(status_code=403, detail="forbidden")
+        return dg.usage_summary(app.state.engine, datetime.now(timezone.utc).date())
 
     return app
 

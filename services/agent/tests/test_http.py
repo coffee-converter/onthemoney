@@ -116,3 +116,13 @@ def test_stream_cache_hit_skips_agent(monkeypatch, seeded_engine):
     client = TestClient(app)
     resp = client.get("/ask/stream", params={"query": q})
     assert "CACHED" in resp.text
+
+
+def test_admin_usage_requires_secret(monkeypatch, seeded_engine):
+    monkeypatch.setenv("OTM_ADMIN_SECRET", "s3cret")
+    app = create_app(engine=seeded_engine, client_factory=lambda: _FakeClient(_script()))
+    client = TestClient(app)
+    assert client.get("/admin/usage").status_code == 403
+    ok = client.get("/admin/usage", headers={"x-admin-secret": "s3cret"})
+    assert ok.status_code == 200
+    assert "spent_usd" in ok.json()
