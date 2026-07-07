@@ -213,8 +213,12 @@ def create_app(engine: Engine | None = None,
 
 
 def main() -> None:
+    import os
     import uvicorn
-    uvicorn.run(create_app(), host="0.0.0.0", port=8000)
+    # Bind IPv6 dual-stack ("::") not "0.0.0.0": Fly's private 6PN network is
+    # IPv6, so an IPv4-only bind is unreachable from other apps (ECONNREFUSED).
+    # "::" also accepts IPv4-mapped connections, so local dev on localhost works.
+    uvicorn.run(create_app(), host="::", port=int(os.environ.get("PORT", "8000")))
 
 
 if __name__ == "__main__":
