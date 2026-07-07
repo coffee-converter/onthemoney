@@ -1,9 +1,10 @@
 from otm_eval.golden import load_golden
 from otm_eval.system import load_recorded
 from otm_eval.graders import grade_trajectory, grade_answer, grade_scene
+from tests.conftest import FIXTURE_GOLDEN, FIXTURE_RECORDED
 
-GOLDEN = {i.id: i for i in load_golden()}
-REC = load_recorded()
+GOLDEN = {i.id: i for i in load_golden(FIXTURE_GOLDEN)}
+REC = load_recorded(FIXTURE_RECORDED)
 
 
 def test_trajectory_pass_on_baseline():

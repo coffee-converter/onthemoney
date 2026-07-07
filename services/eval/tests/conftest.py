@@ -1,11 +1,16 @@
 import os
 import pytest
+from pathlib import Path
 from sqlalchemy import text
 from otm_data.db import get_engine, apply_schema
 from otm_data.load import (
     load_candidates, load_committees, load_linkages,
     load_contributions, linked_committee_ids,
 )
+
+_FIXTURES = Path(__file__).parent / "fixtures"
+FIXTURE_GOLDEN = str(_FIXTURES / "golden.jsonl")
+FIXTURE_RECORDED = str(_FIXTURES / "recorded.json")
 
 TABLES = ["contributions", "candidate_committee", "committees", "candidates",
           "candidate_totals"]

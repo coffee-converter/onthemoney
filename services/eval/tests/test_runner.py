@@ -1,10 +1,11 @@
 from otm_eval.golden import load_golden
 from otm_eval.system import load_recorded
 from otm_eval.runner import run_eval
+from tests.conftest import FIXTURE_GOLDEN, FIXTURE_RECORDED
 
 
 def test_baseline_scores_perfect():
-    report = run_eval(load_golden(), load_recorded())
+    report = run_eval(load_golden(FIXTURE_GOLDEN), load_recorded(FIXTURE_RECORDED))
     assert report.accuracy() == 1.0
     assert report.trajectory_accuracy() == 1.0
     assert report.scene_accuracy() == 1.0
@@ -14,8 +15,8 @@ def test_baseline_scores_perfect():
 
 
 def test_regression_is_detected():
-    golden = load_golden()
-    rec = load_recorded()
+    golden = load_golden(FIXTURE_GOLDEN)
+    rec = load_recorded(FIXTURE_RECORDED)
     broken = dict(rec)
     az06 = broken["az06-funds"]
     broken["az06-funds"] = az06.__class__(**{**az06.__dict__, "total": "999.00"})
