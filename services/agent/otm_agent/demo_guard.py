@@ -58,3 +58,23 @@ def rate_limited(engine: Engine, cfg: DemoConfig, ip: str, now: datetime) -> boo
         per_min = _bump(conn, ip, minute_key)
         per_day = _bump(conn, ip, day_key)
     return per_min > cfg.rate_per_min or per_day > cfg.rate_per_day
+
+
+from datetime import date
+
+_SPENT = text("SELECT spent_usd FROM demo_budget_ledger WHERE day = :day")
+_BILL = text(
+    "INSERT INTO demo_budget_ledger (day, spent_usd) VALUES (:day, :cost) "
+    "ON CONFLICT (day) DO UPDATE SET spent_usd = demo_budget_ledger.spent_usd + :cost"
+)
+
+
+def budget_exceeded(engine: Engine, cfg: DemoConfig, day: date) -> bool:
+    with engine.connect() as conn:
+        spent = conn.execute(_SPENT, {"day": day}).scalar()
+    return float(spent or 0) >= cfg.daily_usd
+
+
+def bill(engine: Engine, day: date, cost_usd: float) -> None:
+    with engine.begin() as conn:
+        conn.execute(_BILL, {"day": day, "cost": cost_usd})

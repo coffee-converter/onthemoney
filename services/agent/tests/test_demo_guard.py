@@ -54,3 +54,18 @@ def test_rate_limit_isolated_per_ip(seeded_engine):
     for _ in range(3):
         rate_limited(seeded_engine, _CFG, "2.2.2.2", now)
     assert rate_limited(seeded_engine, _CFG, "3.3.3.3", now) is False  # different IP
+
+
+from datetime import date
+from otm_agent.demo_guard import budget_exceeded, bill
+
+
+def test_budget_not_exceeded_when_empty(seeded_engine):
+    assert budget_exceeded(seeded_engine, _CFG, date(2026, 7, 7)) is False
+
+
+def test_bill_accumulates_and_trips(seeded_engine):
+    day = date(2026, 7, 8)
+    bill(seeded_engine, day, 2.5)
+    bill(seeded_engine, day, 3.0)  # total 5.5 >= 5.0 cap
+    assert budget_exceeded(seeded_engine, _CFG, day) is True
