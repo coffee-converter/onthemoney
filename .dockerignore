@@ -1,0 +1,17 @@
+# Root build context is used by the agent Dockerfile (needs services/data +
+# services/agent only). Keep the upload small by excluding everything heavy.
+.git
+.devlogs
+.superpowers
+**/node_modules
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.next
+apps
+services/eval
+services/data/_fec
+services/data/.pgdata
+docs
+DEPLOY.md
