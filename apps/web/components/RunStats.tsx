@@ -4,6 +4,13 @@ function tokens(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k tok` : `${n} tok`;
 }
 
+// Never let a nonzero run read as free: a fraction-of-a-cent estimate keeps
+// enough precision to stay above $0.00.
+function cost(usd: number): string {
+  if (usd > 0 && usd < 0.01) return `~$${usd.toFixed(4)}`;
+  return `~$${usd.toFixed(2)}`;
+}
+
 export function RunStats({ telemetry }: { telemetry: Telemetry }) {
   const t = telemetry;
   const secs = (t.elapsed_ms / 1000).toFixed(1);
@@ -12,7 +19,7 @@ export function RunStats({ telemetry }: { telemetry: Telemetry }) {
     <details className="run-stats">
       <summary>
         {t.tool_calls} tools · {secs}s · {tokens(t.input_tokens + t.output_tokens)} ·{' '}
-        ~${t.est_cost_usd.toFixed(2)} ·{' '}
+        {cost(t.est_cost_usd)} ·{' '}
         <span className={failed ? 'run-stats-warn' : ''}>
           {failed ? `${t.tool_failures} tool${t.tool_failures === 1 ? '' : 's'} failed — recovered` : '0 failures'}
         </span>

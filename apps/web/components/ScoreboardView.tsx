@@ -1,8 +1,5 @@
 import type { ScoreboardData } from '../lib/types';
-
-function pct(x: number): string {
-  return `${(x * 100).toFixed(0)}%`;
-}
+import { pct } from '../lib/format';
 
 function yn(b: boolean): string {
   return b ? 'pass' : 'fail';

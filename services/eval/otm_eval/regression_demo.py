@@ -24,13 +24,18 @@ def _first_high_case(golden) -> str:
     raise RuntimeError("no high-confidence case to perturb")
 
 
-def inject_regression(recorded: dict[str, SystemOutput]) -> dict[str, SystemOutput]:
+def inject_regression(recorded: dict[str, SystemOutput],
+                      golden=None) -> dict[str, SystemOutput]:
     """Return a copy simulating a systematic regression: a units/rounding bug in
     the funding tool drifts EVERY high-confidence total by 10%, each still reported
     at high confidence. One perturbed case would not cross the gate thresholds on a
     ~24-case set; a real shared-tool regression hits every case that tool feeds, and
-    that is what the gate must catch."""
-    golden = {item.id: item for item in load_golden()}
+    that is what the gate must catch.
+
+    `golden` is the case set to perturb against; it defaults to the on-disk golden
+    but callers should pass the same golden they grade with so the two can't drift."""
+    items = golden if golden is not None else load_golden()
+    golden = {item.id: item for item in items}
     broken = copy.deepcopy(recorded)
     for cid, out in broken.items():
         item = golden.get(cid)
@@ -41,8 +46,12 @@ def inject_regression(recorded: dict[str, SystemOutput]) -> dict[str, SystemOutp
 
 def run_regression_demo(golden, recorded) -> dict:
     representative = _first_high_case(golden)
+    if representative not in recorded:
+        raise RuntimeError(
+            f"golden case {representative!r} is missing from the recorded baseline; "
+            "regenerate the baseline so golden and recorded stay in sync")
     before = run_eval(golden, recorded)
-    broken = inject_regression(recorded)
+    broken = inject_regression(recorded, golden)
     after = run_eval(golden, broken)
     affected = sum(1 for cid, out in broken.items()
                    if recorded[cid].total != out.total)

@@ -104,6 +104,7 @@ export function Chat({
     setBusy(true);
     onReset?.();
     let sceneRendered = false;
+    let loadingScenePending = false;
     let cand: Candidate | null = null;
     let districtKey: string | undefined;
     let fundingCandId = '';
@@ -113,7 +114,20 @@ export function Chat({
         setAnswer(a);
         // Only render here if emit_scene didn't already - avoids re-running the
         // draw-in animation when the final answer arrives.
-        if (a.scene && !sceneRendered) onScene(a.scene);
+        if (a.scene && !sceneRendered) {
+          onScene(a.scene);
+        } else if (!sceneRendered && loadingScenePending && districtKey) {
+          // We pulsed a district while the answer streamed, but no map ever
+          // arrived (the scene tool errored, or the answer was text-only). Settle
+          // the pulse on the seat rather than leaving it spinning forever. The
+          // (0,0) camera tells the map to frame the district from its geometry.
+          const [st, di] = districtKey.split('-');
+          onScene({
+            highlight: { state: st, district: di },
+            camera: { type: 'flyTo', lon: 0, lat: 0, zoom: 7 },
+            flows: [],
+          });
+        }
         setBusy(false);
         return;
       }
@@ -135,6 +149,7 @@ export function Chat({
             flows: [],
             loading: true,
           });
+          loadingScenePending = true;
         }
       }
       setSteps((prev) => [...prev, step]);
@@ -185,7 +200,8 @@ export function Chat({
         ['emit_scene', 'render_map', 'map_state', 'map_nation', 'map_candidates',
           'highlight_district'].includes(step.name ?? '') &&
         step.payload &&
-        !('insufficient' in step.payload)
+        !('insufficient' in step.payload) &&
+        !('error' in step.payload)
       ) {
         onScene(step.payload as unknown as Scene);
         sceneRendered = true;
@@ -255,6 +271,7 @@ export function Chat({
       {answer && (
         <div className="answer">
           <ConfidenceChip level={answer.confidence} />
+          {telemetry && <RunStats telemetry={telemetry} />}
           {(money(answer.receipts) || money(answer.individual_total)) && (
             <div className="stat-row">
               {money(answer.receipts) && (
@@ -275,7 +292,6 @@ export function Chat({
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{answer.text}</ReactMarkdown>
           </div>
           <Citations items={answer.citations} />
-          {telemetry && <RunStats telemetry={telemetry} />}
         </div>
       )}
       </div>

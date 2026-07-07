@@ -41,4 +41,5 @@ def test_report_dict_has_regime_breakdown():
     d = report_to_dict(Report(items=items))
     assert d["by_regime"]["high"] == {"count": 2, "accuracy": 0.5}
     assert d["by_regime"]["insufficient"] == {"count": 1, "accuracy": 1.0}
-    assert d["answer_accuracy"] == d["accuracy"]
+    # Regime counts partition the full item set.
+    assert sum(r["count"] for r in d["by_regime"].values()) == d["item_count"]

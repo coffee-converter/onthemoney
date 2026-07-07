@@ -663,13 +663,18 @@ export function MapView({
       applyScene(map as unknown as MapLike, scene);
 
       const loading = !!scene.loading; // district known, funding still fetching
-      const center: [number, number] = [scene.camera.lon, scene.camera.lat];
+      // A resolved district with no beams and the (0,0) placeholder camera means
+      // "highlight this seat but frame it yourself" — emitted when the funding/
+      // scene step produced no map, so the pulse settles on the district instead
+      // of spinning forever.
+      const noCamera = !loading && scene.camera.lon === 0 && scene.camera.lat === 0;
+      let center: [number, number] = [scene.camera.lon, scene.camera.lat];
       if (!loading) {
         // Hide the just-applied beams right away so they don't flash before the
         // zoom-out and draw-in animation.
         animatingRef.current = true;
         clearFlows();
-        placeMarker(center);
+        if (!noCamera) placeMarker(center);
       }
       flowOriginsRef.current = loading
         ? []
@@ -790,9 +795,10 @@ export function MapView({
           // While loading we have no real camera yet; anchor the marker on the
           // district's own centroid.
           const centroid = feature.properties?.centroid as [number, number] | undefined;
-          if (loading && Array.isArray(centroid)) {
+          if ((loading || noCamera) && Array.isArray(centroid)) {
             placeMarker(centroid);
             hubRef.current = centroid; // so the candidate card anchors on the dot
+            if (noCamera) center = centroid; // frame phase-2 on the seat, not null island
           }
         }
       } catch (e) {

@@ -41,9 +41,13 @@ def build_answer_from_trace(engine: Engine, trace: list[dict],
                  "donor_size_breakdown", "top_candidates", "race_summary",
                  "render_map", "map_state", "map_nation", "map_candidates",
                  "highlight_district"}
+    # A tool that raised is recovered into an {"error": ...} payload upstream so
+    # the request can finish; it must NOT count as grounding, or a crashed
+    # analytical tool would still yield a confident "high" answer with no data.
     grounded = any(
         step["type"] == "tool_result" and step["name"] in _GROUNDED
         and not step["payload"].get("insufficient", False)
+        and "error" not in step["payload"]
         for step in trace
     )
 

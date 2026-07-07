@@ -91,3 +91,18 @@ def test_grounded_analytical_answer_is_not_insufficient(seeded_engine):
     ans = build_answer_from_trace(seeded_engine, trace,
                                   "Here are Arizona's leading candidates.")
     assert ans["confidence"] == "high"
+
+
+def test_errored_grounded_tool_is_not_treated_as_grounded(seeded_engine):
+    # A grounded analytical tool that raised is recovered into an {"error": ...}
+    # payload so the request can finish; it must NOT count as grounding, or a
+    # crashed tool would still produce a confident, data-free "high" answer.
+    trace = [
+        {"type": "tool_use", "name": "industry_breakdown", "input": {"cand_id": "X"}},
+        {"type": "tool_result", "name": "industry_breakdown",
+         "payload": {"error": "industry_breakdown failed (ValueError)"}},
+        {"type": "result", "text": "Their top industries are finance and real estate."},
+    ]
+    ans = build_answer_from_trace(seeded_engine, trace,
+                                  "Their top industries are finance and real estate.")
+    assert ans["confidence"] == "insufficient"

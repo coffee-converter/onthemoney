@@ -733,7 +733,7 @@ td {
   gap: 8px;
 }
 
-.chip {
+.intro-chips .chip {
   text-align: left;
   padding: 10px 12px;
   border: 1px solid var(--line);
@@ -746,16 +746,16 @@ td {
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.05s ease;
 }
 
-.chip:hover {
+.intro-chips .chip:hover {
   border-color: var(--accent);
   background: #11171f;
 }
 
-.chip:active {
+.intro-chips .chip:active {
   transform: translateY(1px);
 }
 
-.run-stats { margin-top: 0.75rem; font-size: 0.8rem; color: var(--muted); }
+.run-stats { margin: 0.35rem 0 0.7rem; padding-bottom: 0.7rem; border-bottom: 1px solid var(--line); font-size: 0.8rem; color: var(--muted); }
 .run-stats summary { cursor: pointer; list-style: none; }
 .run-stats summary a { margin-left: 0.5rem; }
 .run-stats-detail { margin: 0.5rem 0 0; padding-left: 1rem; }

@@ -35,3 +35,14 @@ def test_estimate_cost_uses_per_million_pricing():
 
 def test_estimate_cost_unknown_model_falls_back():
     assert estimate_cost("some-unlisted-model", 1000, 1000) > 0
+
+
+def test_estimate_cost_matches_dated_and_tagged_model_ids():
+    # A deploy id may carry a snapshot date and/or a context-window tag; all
+    # forms of the same family must price identically, not hit the fallback.
+    base = estimate_cost("claude-opus-4-8", 1_000_000, 1_000_000)
+    assert estimate_cost("claude-opus-4-8-20260101", 1_000_000, 1_000_000) == base
+    assert estimate_cost("claude-opus-4-8[1m]", 1_000_000, 1_000_000) == base
+    # Opus is far pricier than the mid-tier fallback, so a fallback miss would
+    # roughly quarter this figure — guard against that regression explicitly.
+    assert base > estimate_cost("some-unlisted-model", 1_000_000, 1_000_000)

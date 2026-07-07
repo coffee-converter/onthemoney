@@ -1,5 +1,10 @@
 // Shared display formatting for FEC-sourced candidate data.
 
+// A 0-1 rate as a whole-percent string, e.g. 0.965 -> "97%".
+export function pct(x: number): string {
+  return `${(x * 100).toFixed(0)}%`;
+}
+
 export function money(x: string | null | undefined): string | null {
   if (!x) return null;
   const n = parseFloat(x);

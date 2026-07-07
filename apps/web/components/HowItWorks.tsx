@@ -2,11 +2,8 @@
 import { useEffect, useState } from 'react';
 import { fetchScoreboard } from '../lib/api';
 import type { ScoreboardData } from '../lib/types';
+import { pct } from '../lib/format';
 import regression from '../lib/regression.json';
-
-function pct(x: number): string {
-  return `${(x * 100).toFixed(0)}%`;
-}
 
 export function HowItWorks() {
   const [board, setBoard] = useState<ScoreboardData | null>(null);
@@ -40,7 +37,7 @@ export function HowItWorks() {
         <h2>3 · Evaluated &amp; gated</h2>
         {board && (
           <div className="how-metrics">
-            <span>answer accuracy {pct(board.answer_accuracy ?? board.accuracy)}</span>
+            <span>answer accuracy {pct(board.accuracy)}</span>
             <span>trajectory {pct(board.trajectory_accuracy)}</span>
             <span>neutrality {pct(board.neutrality_accuracy)}</span>
             <span>Brier {board.brier.toFixed(3)}</span>

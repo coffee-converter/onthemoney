@@ -1,4 +1,8 @@
 """Write golden.jsonl + recorded.json from the loaded DB. Deterministic, no key.
+
+Prefer `make regenerate` from the repo root: it runs this and then rebuilds the
+regression-demo artifact the /how-it-works page imports, so the downstream copy
+can't drift. Running this module alone refreshes only the baseline.
     uv run python -m otm_eval.regenerate
 """
 import json

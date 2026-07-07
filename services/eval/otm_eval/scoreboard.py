@@ -5,7 +5,12 @@ from otm_eval.runner import Report
 
 def _by_regime(report: Report) -> dict:
     out: dict[str, dict] = {}
-    for label in ("high", "partial", "insufficient"):
+    # Canonical regimes first, then any other label a run reports, so every item
+    # is bucketed and the per-regime counts always sum to item_count.
+    labels = list(dict.fromkeys(
+        ["high", "partial", "insufficient"] + [r.confidence for r in report.items]
+    ))
+    for label in labels:
         group = [r for r in report.items if r.confidence == label]
         if not group:
             continue
@@ -22,7 +27,6 @@ def report_to_dict(report: Report) -> dict:
         "scene_accuracy": report.scene_accuracy(),
         "neutrality_accuracy": report.neutrality_accuracy(),
         "brier": report.brier(),
-        "answer_accuracy": report.accuracy(),
         "by_regime": _by_regime(report),
         "items": [
             {"id": r.id, "correct": r.correct, "trajectory_ok": r.trajectory_ok,

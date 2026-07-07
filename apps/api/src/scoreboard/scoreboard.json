@@ -5,7 +5,6 @@
   "scene_accuracy": 1.0,
   "neutrality_accuracy": 1.0,
   "brier": 0.057999999999999996,
-  "answer_accuracy": 1.0,
   "by_regime": {
     "high": {
       "count": 16,
