@@ -11,7 +11,10 @@
 **/.next
 apps
 services/eval
+services/data/_bulk
 services/data/_fec
 services/data/.pgdata
+services/data/tests
+services/data/docker-compose.yml
 docs
 DEPLOY.md
