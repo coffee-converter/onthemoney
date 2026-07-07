@@ -80,3 +80,16 @@ def test_cache_roundtrip(seeded_engine):
     msgs = [{"event": "text", "data": "{\"type\":\"text\",\"text\":\"hi\"}"}]
     cache_put(seeded_engine, h, msgs)
     assert cache_get(seeded_engine, h) == msgs
+
+
+from otm_agent.demo_guard import usage_summary
+
+
+def test_usage_summary_reports_spend_and_cache(seeded_engine):
+    day = date(2026, 7, 9)
+    bill(seeded_engine, day, 1.25)
+    cache_put(seeded_engine, query_hash("q1"), [{"event": "x", "data": "{}"}])
+    s = usage_summary(seeded_engine, day)
+    assert s["spent_usd"] == 1.25
+    assert s["cached_answers"] >= 1
+    assert "requests_today" in s

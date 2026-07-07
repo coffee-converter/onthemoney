@@ -103,3 +103,17 @@ def cache_put(engine: Engine, qhash: str, messages: list[dict]) -> None:
     with engine.begin() as conn:
         conn.execute(_CPUT, {"h": qhash, "t": json.dumps(messages),
                              "v": SCHEMA_VERSION})
+
+
+_REQS = text("SELECT COALESCE(SUM(count),0) FROM demo_rate_limit WHERE window_key = :dk")
+_CACHED = text("SELECT COUNT(*) FROM demo_answer_cache")
+
+
+def usage_summary(engine: Engine, day: date) -> dict:
+    day_key = "d:" + day.strftime("%Y-%m-%d")
+    with engine.connect() as conn:
+        spent = conn.execute(_SPENT, {"day": day}).scalar()
+        requests = conn.execute(_REQS, {"dk": day_key}).scalar_one()
+        cached = conn.execute(_CACHED).scalar_one()
+    return {"spent_usd": float(spent or 0), "requests_today": int(requests),
+            "cached_answers": int(cached)}
