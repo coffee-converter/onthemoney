@@ -3,9 +3,10 @@ import { useState, type FormEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { streamAsk } from '../lib/api';
-import type { Answer, Candidate, Scene, Step } from '../lib/types';
+import type { Answer, Candidate, Scene, Step, Telemetry } from '../lib/types';
 import { ConfidenceChip } from './ConfidenceChip';
 import { Citations } from './Citations';
+import { RunStats } from './RunStats';
 
 const SAMPLE = 'Who funds the representative in IL-5?';
 
@@ -91,6 +92,7 @@ export function Chat({
   const [query, setQuery] = useState(SAMPLE);
   const [steps, setSteps] = useState<Step[]>([]);
   const [answer, setAnswer] = useState<Answer | null>(null);
+  const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
   const [busy, setBusy] = useState(false);
 
   function runQuery(q: string) {
@@ -98,6 +100,7 @@ export function Chat({
     setQuery(q);
     setSteps([]);
     setAnswer(null);
+    setTelemetry(null);
     setBusy(true);
     onReset?.();
     let sceneRendered = false;
@@ -112,6 +115,10 @@ export function Chat({
         // draw-in animation when the final answer arrives.
         if (a.scene && !sceneRendered) onScene(a.scene);
         setBusy(false);
+        return;
+      }
+      if (step.type === 'telemetry') {
+        setTelemetry(step as unknown as Telemetry);
         return;
       }
       // As soon as the district is identified, render it (pulsing) while the
@@ -268,6 +275,7 @@ export function Chat({
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{answer.text}</ReactMarkdown>
           </div>
           <Citations items={answer.citations} />
+          {telemetry && <RunStats telemetry={telemetry} />}
         </div>
       )}
       </div>

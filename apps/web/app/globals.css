@@ -754,3 +754,9 @@ td {
 .chip:active {
   transform: translateY(1px);
 }
+
+.run-stats { margin-top: 0.75rem; font-size: 0.8rem; color: var(--muted); }
+.run-stats summary { cursor: pointer; list-style: none; }
+.run-stats summary a { margin-left: 0.5rem; }
+.run-stats-detail { margin: 0.5rem 0 0; padding-left: 1rem; }
+.run-stats-warn { color: #d98324; }
