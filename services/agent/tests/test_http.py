@@ -88,8 +88,12 @@ def _events(resp):
 def test_stream_budget_breaker(monkeypatch, seeded_engine):
     monkeypatch.setenv("OTM_DEMO_ENABLED", "1")
     monkeypatch.setenv("OTM_DEMO_DAILY_USD", "1.00")
-    bill(seeded_engine, date.today(), 2.0)  # already over cap
-    app = create_app(engine=seeded_engine, client_factory=lambda: _FakeClient(_script()))
+    from datetime import datetime, timezone
+    bill(seeded_engine, datetime.now(timezone.utc).date(), 2.0)  # already over cap
+    # A client_factory that raises proves the agent is never called once the budget is exhausted.
+    def _boom():
+        raise AssertionError("agent must not be called once the budget is exhausted")
+    app = create_app(engine=seeded_engine, client_factory=_boom)
     client = TestClient(app)
     resp = client.get("/ask/stream", params={"query": "Who funds NY-14?"})
     events = _events(resp)
