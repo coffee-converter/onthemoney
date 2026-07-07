@@ -34,3 +34,44 @@ describe('AgentController', () => {
     });
   });
 });
+
+describe('AgentService.stream telemetry relay', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('relays a telemetry SSE frame unchanged', (done) => {
+    const telemetry = {
+      type: 'telemetry',
+      model: 'claude-sonnet-4-5',
+      turns: 3,
+      tool_calls: 2,
+      tool_failures: 0,
+      input_tokens: 1000,
+      output_tokens: 200,
+      elapsed_ms: 1500,
+      per_tool: [{ name: 'find_candidate', ms: 120, ok: true }],
+      est_cost_usd: 0.01,
+    };
+    const sse = `event: telemetry\ndata: ${JSON.stringify(telemetry)}\n\n`;
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream({
+        start(streamController) {
+          streamController.enqueue(new TextEncoder().encode(sse));
+          streamController.close();
+        },
+      }),
+    }) as unknown as typeof fetch;
+
+    const service = new AgentService();
+    service.stream('Who funds AZ-06?').subscribe((msg) => {
+      expect(msg.type).toBe('telemetry');
+      expect(JSON.parse(msg.data)).toEqual(telemetry);
+      done();
+    });
+  });
+});

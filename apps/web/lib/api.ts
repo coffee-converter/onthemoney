@@ -2,7 +2,7 @@ import type { ScoreboardData, Step, RosterCandidate, Scene } from './types';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-const STREAM_EVENTS = ['tool_use', 'tool_result', 'text', 'result', 'answer'];
+export const STREAM_EVENTS = ['tool_use', 'tool_result', 'text', 'result', 'telemetry', 'answer'];
 
 // Opens the BFF server-sent-events stream and calls onStep for each event.
 // Returns a cleanup function that closes the stream.

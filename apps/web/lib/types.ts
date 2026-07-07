@@ -70,8 +70,26 @@ export interface Answer {
   scene: Scene | null;
 }
 
+export interface PerTool {
+  name: string;
+  ms: number;
+  ok: boolean;
+}
+
+export interface Telemetry {
+  model: string;
+  turns: number;
+  tool_calls: number;
+  tool_failures: number;
+  input_tokens: number;
+  output_tokens: number;
+  elapsed_ms: number;
+  per_tool: PerTool[];
+  est_cost_usd: number;
+}
+
 export interface Step {
-  type: 'tool_use' | 'tool_result' | 'text' | 'result' | 'answer';
+  type: 'tool_use' | 'tool_result' | 'text' | 'result' | 'answer' | 'telemetry';
   name?: string;
   input?: Record<string, unknown>;
   payload?: Record<string, unknown>;

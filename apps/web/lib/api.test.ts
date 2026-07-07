@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { fetchScoreboard } from './api';
+import { fetchScoreboard, STREAM_EVENTS } from './api';
+
+describe('stream contract', () => {
+  it('subscribes to the telemetry event', () => {
+    expect(STREAM_EVENTS).toContain('telemetry');
+  });
+});
 
 describe('fetchScoreboard', () => {
   afterEach(() => vi.restoreAllMocks());
