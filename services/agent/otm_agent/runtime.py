@@ -134,8 +134,8 @@ def stream_query(client, prompt: str, engine: Engine, *, model: str | None = Non
                 try:
                     payload = get_spec(block.name).handler(engine, block.input)
                     ok = True
-                except Exception as exc:  # surface, count, and recover — never kill the stream
-                    payload = {"error": f"{type(exc).__name__}: {exc}"}
+                except Exception as exc:  # surface, count, and recover — never leak internals
+                    payload = {"error": f"{block.name} failed ({type(exc).__name__})"}
                     ok = False
                     tool_failures += 1
                 per_tool.append({"name": block.name,

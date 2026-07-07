@@ -9,12 +9,12 @@ export function RunStats({ telemetry }: { telemetry: Telemetry }) {
   const secs = (t.elapsed_ms / 1000).toFixed(1);
   const failed = t.tool_failures > 0;
   return (
-    <details className="run-stats" role="status">
+    <details className="run-stats">
       <summary>
         {t.tool_calls} tools · {secs}s · {tokens(t.input_tokens + t.output_tokens)} ·{' '}
         ~${t.est_cost_usd.toFixed(2)} ·{' '}
         <span className={failed ? 'run-stats-warn' : ''}>
-          {failed ? `${t.tool_failures} tool failed — recovered` : '0 failures'}
+          {failed ? `${t.tool_failures} tool${t.tool_failures === 1 ? '' : 's'} failed — recovered` : '0 failures'}
         </span>
         {' '}<a href="/how-it-works">how this works ▸</a>
       </summary>
