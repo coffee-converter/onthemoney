@@ -117,12 +117,13 @@ reaching the BFF without the secret is rejected downstream (403).
 
 ## Step 3 — Web app on Vercel
 
+All Vercel commands are scoped to the **`nft-coffee`** team.
 ```bash
 cd apps/web
-vercel link            # create/link the project (interactive)
-vercel env add OTM_PROXY_SECRET production      # paste the same secret
-vercel env add BFF_INTERNAL_URL production      # https://otm-bff.fly.dev
-vercel --prod
+vercel link --scope nft-coffee                          # create/link project under NFTcoffee
+vercel env add OTM_PROXY_SECRET production --scope nft-coffee    # paste the same secret
+vercel env add BFF_INTERNAL_URL production --scope nft-coffee    # https://otm-bff.fly.dev
+vercel --prod --scope nft-coffee
 ```
 Leave `NEXT_PUBLIC_API_URL` unset so the browser uses the same-origin `/api/bff`
 proxy (which injects the secret the browser's `EventSource` cannot send).
