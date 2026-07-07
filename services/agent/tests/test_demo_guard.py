@@ -69,3 +69,14 @@ def test_bill_accumulates_and_trips(seeded_engine):
     bill(seeded_engine, day, 2.5)
     bill(seeded_engine, day, 3.0)  # total 5.5 >= 5.0 cap
     assert budget_exceeded(seeded_engine, _CFG, day) is True
+
+
+from otm_agent.demo_guard import cache_get, cache_put
+
+
+def test_cache_roundtrip(seeded_engine):
+    h = query_hash("cache me")
+    assert cache_get(seeded_engine, h) is None
+    msgs = [{"event": "text", "data": "{\"type\":\"text\",\"text\":\"hi\"}"}]
+    cache_put(seeded_engine, h, msgs)
+    assert cache_get(seeded_engine, h) == msgs

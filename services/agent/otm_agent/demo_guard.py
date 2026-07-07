@@ -3,6 +3,7 @@ query-answer caching. Active only when OTM_DEMO_ENABLED=1; otherwise every
 function short-circuits so dev and tests are unaffected. All state lives in the
 demo_* Postgres tables (see schema.sql)."""
 import hashlib
+import json
 import os
 import re
 from dataclasses import dataclass
@@ -78,3 +79,27 @@ def budget_exceeded(engine: Engine, cfg: DemoConfig, day: date) -> bool:
 def bill(engine: Engine, day: date, cost_usd: float) -> None:
     with engine.begin() as conn:
         conn.execute(_BILL, {"day": day, "cost": cost_usd})
+
+
+_CGET = text(
+    "SELECT trace_json FROM demo_answer_cache "
+    "WHERE query_hash = :h AND schema_version = :v"
+)
+_CPUT = text(
+    "INSERT INTO demo_answer_cache (query_hash, trace_json, schema_version) "
+    "VALUES (:h, :t, :v) "
+    "ON CONFLICT (query_hash) DO UPDATE SET "
+    "trace_json = :t, schema_version = :v, created_at = now()"
+)
+
+
+def cache_get(engine: Engine, qhash: str) -> list[dict] | None:
+    with engine.connect() as conn:
+        row = conn.execute(_CGET, {"h": qhash, "v": SCHEMA_VERSION}).scalar()
+    return list(row) if row is not None else None
+
+
+def cache_put(engine: Engine, qhash: str, messages: list[dict]) -> None:
+    with engine.begin() as conn:
+        conn.execute(_CPUT, {"h": qhash, "t": json.dumps(messages),
+                             "v": SCHEMA_VERSION})
