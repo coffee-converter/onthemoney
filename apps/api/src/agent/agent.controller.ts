@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Sse } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req, Sse } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { AgentService } from './agent.service';
 import { AskDto, StreamMessage } from './dto';
@@ -13,8 +13,12 @@ export class AgentController {
   }
 
   @Sse('ask/stream')
-  stream(@Query('query') query: string): Observable<StreamMessage> {
-    return this.agent.stream(query);
+  stream(
+    @Query('query') query: string,
+    @Req() req: { headers: Record<string, string | undefined> },
+  ): Observable<StreamMessage> {
+    const fwd = req.headers['x-forwarded-for'] as string | undefined;
+    return this.agent.stream(query, fwd);
   }
 
   @Get('district/:state/:district/candidates')

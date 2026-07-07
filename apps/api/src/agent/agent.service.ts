@@ -6,10 +6,17 @@ import { StreamMessage } from './dto';
 export class AgentService {
   private readonly base = process.env.AGENT_URL || 'http://localhost:8000';
 
+  private agentHeaders(forwardedFor?: string): Record<string, string> {
+    const h: Record<string, string> = {};
+    if (process.env.OTM_PROXY_SECRET) h['x-otm-proxy-secret'] = process.env.OTM_PROXY_SECRET;
+    if (forwardedFor) h['x-forwarded-for'] = forwardedFor;
+    return h;
+  }
+
   async ask(query: string): Promise<unknown> {
     const res = await fetch(`${this.base}/ask`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...this.agentHeaders() },
       body: JSON.stringify({ query }),
     });
     if (!res.ok) {
@@ -19,7 +26,9 @@ export class AgentService {
   }
 
   async roster(state: string, district: string): Promise<unknown> {
-    const res = await fetch(`${this.base}/district/${state}/${district}/candidates`);
+    const res = await fetch(`${this.base}/district/${state}/${district}/candidates`, {
+      headers: this.agentHeaders(),
+    });
     if (!res.ok) {
       throw new Error(`agent service responded ${res.status}`);
     }
@@ -30,19 +39,22 @@ export class AgentService {
     const url = `${this.base}/candidate/${encodeURIComponent(candId)}/scene?state=${encodeURIComponent(
       state,
     )}&district=${encodeURIComponent(district)}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: this.agentHeaders() });
     if (!res.ok) {
       throw new Error(`agent service responded ${res.status}`);
     }
     return res.json();
   }
 
-  stream(query: string): Observable<StreamMessage> {
+  stream(query: string, forwardedFor?: string): Observable<StreamMessage> {
     const url = `${this.base}/ask/stream?query=${encodeURIComponent(query)}`;
     return new Observable<StreamMessage>((subscriber) => {
       const controller = new AbortController();
       (async () => {
-        const res = await fetch(url, { signal: controller.signal });
+        const res = await fetch(url, {
+          signal: controller.signal,
+          headers: this.agentHeaders(forwardedFor),
+        });
         if (!res.ok || !res.body) {
           throw new Error(`agent stream responded ${res.status}`);
         }
