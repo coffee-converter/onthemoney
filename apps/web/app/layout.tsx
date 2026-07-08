@@ -37,6 +37,11 @@ const JSON_LD = {
       '@id': 'https://onthemoney.fyi/#person',
       name: 'Aaron Hanson',
       url: 'https://aaronhanson.dev',
+      sameAs: [
+        'https://aaronhanson.dev',
+        'https://github.com/coffee-converter',
+        'https://www.linkedin.com/in/ildiscgolfer',
+      ],
     },
   ],
 };
