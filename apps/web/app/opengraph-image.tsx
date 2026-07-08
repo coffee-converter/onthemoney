@@ -14,11 +14,30 @@ const CHIPS = ['Grounded', 'Cited', 'Calibrated'];
 // money along thin lines to one district (the hub). Green = the in-state home,
 // amber = out-of-state donors — the app's own legend, deliberately not
 // partisan red/blue. Hub is offset from center so it doesn't sit behind the text.
-const HUB = { x: 600, y: 315 };
-const BEAMS = [
-  { x: 95, y: 250, c: IN }, // left: the district's own (in-state) money
-  { x: 1105, y: 385, c: OUT }, // right: out-of-state money
+// Two faint money-flow diagrams flanking the text: each is a blue district hub
+// with a cluster of donor dots (one green in-state home, the rest amber
+// out-of-state) beaming in at varied lengths for an organic look.
+const HUBS = [
+  { x: 195, y: 315 },
+  { x: 1005, y: 315 },
 ];
+// [angleDeg, radius] spokes — radii vary so the beams aren't uniform.
+const SPOKES = [
+  [[-152, 150], [-108, 206], [-62, 120], [-18, 184], [28, 150], [70, 214], [118, 134], [158, 196], [196, 166]],
+  [[-166, 176], [-122, 128], [-74, 206], [-28, 150], [18, 198], [64, 120], [112, 200], [152, 142], [188, 182]],
+];
+const GREEN_IDX = 3; // one in-state (green) donor per cluster
+const CLUSTERS = HUBS.map((hub, ci) => ({
+  hub,
+  dots: SPOKES[ci].map(([a, r], i) => {
+    const rad = (a * Math.PI) / 180;
+    return {
+      x: Math.round(hub.x + Math.cos(rad) * r),
+      y: Math.round(hub.y + Math.sin(rad) * r),
+      c: i === GREEN_IDX ? IN : OUT,
+    };
+  }),
+}));
 
 export default function OgImage() {
   return new ImageResponse(
@@ -40,27 +59,29 @@ export default function OgImage() {
       >
         {/* Money-flow beams (behind the content): donor states converging on a district. */}
         <svg width="1200" height="630" viewBox="0 0 1200 630" style={{ position: 'absolute', top: 0, left: 0 }}>
-          {BEAMS.map((b, i) => (
-            <path
-              key={`beam-${i}`}
-              d={`M ${b.x} ${b.y} L ${HUB.x} ${HUB.y}`}
-              stroke={b.c}
-              strokeWidth="1.5"
-              fill="none"
-              opacity="0.1"
-            />
-          ))}
-          {BEAMS.map((b, i) => (
-            <circle
-              key={`dot-${i}`}
-              cx={b.x}
-              cy={b.y}
-              r={b.c === IN ? 8 : 6}
-              fill={b.c}
-              opacity={b.c === IN ? 0.6 : 0.3}
-            />
-          ))}
-          <circle cx={HUB.x} cy={HUB.y} r="6" fill={ACCENT} opacity="0.45" />
+          {CLUSTERS.flatMap((cl, ci) => [
+            ...cl.dots.map((d, i) => (
+              <path
+                key={`beam-${ci}-${i}`}
+                d={`M ${d.x} ${d.y} L ${cl.hub.x} ${cl.hub.y}`}
+                stroke={d.c}
+                strokeWidth="1"
+                fill="none"
+                opacity="0.06"
+              />
+            )),
+            ...cl.dots.map((d, i) => (
+              <circle
+                key={`dot-${ci}-${i}`}
+                cx={d.x}
+                cy={d.y}
+                r={d.c === IN ? 6 : 5}
+                fill={d.c}
+                opacity={d.c === IN ? 0.4 : 0.18}
+              />
+            )),
+            <circle key={`hub-${ci}`} cx={cl.hub.x} cy={cl.hub.y} r="9" fill={ACCENT} opacity="0.4" />,
+          ])}
         </svg>
 
         {/* Central safe area (~80%): survives square (iMessage/Slack) and 2:1 (Twitter) crops. */}
