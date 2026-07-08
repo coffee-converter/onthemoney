@@ -20,12 +20,25 @@ export function sanitizeQuery(query: unknown): string {
 
 /** Resolve the client IP the demo rate-limiter should key on.
  *
- *  Prefers `Fly-Client-IP`, which Fly's edge injects from the real TCP peer and
- *  a caller cannot forge. The raw `X-Forwarded-For` is client-settable, so
- *  keying on it lets an attacker hitting the public BFF directly rotate the
- *  header to mint unlimited rate-limit buckets. Falls back to the first
- *  forwarded hop only when there is no Fly header (local dev / other hosts). */
-export function clientIp(headers: Record<string, string | undefined>): string | undefined {
+ *  In production the request path is user -> Vercel edge -> this BFF, so the
+ *  BFF's real TCP peer is Vercel, not the user: `Fly-Client-IP` is a rotating
+ *  Vercel edge address, useless for per-user limiting. Vercel does know the true
+ *  client, and our edge middleware forwards it as `x-otm-real-ip`, stamped with
+ *  a shared `OTM_EDGE_SECRET` so we can tell it came from our own edge. We trust
+ *  that IP only when the stamp matches; a direct caller to the public BFF has no
+ *  secret, so it can never forge an IP this way.
+ *
+ *  Without a valid stamp we fall back to `Fly-Client-IP`, the real TCP peer that
+ *  Fly injects and a caller cannot forge. The raw `X-Forwarded-For` is
+ *  client-settable, so it is only a last-resort fallback for local dev / other
+ *  hosts where no Fly header exists. */
+export function clientIp(
+  headers: Record<string, string | undefined>,
+  edgeSecret: string | undefined = process.env.OTM_EDGE_SECRET,
+): string | undefined {
+  const stamp = headers['x-otm-edge-secret'];
+  const realIp = headers['x-otm-real-ip'];
+  if (edgeSecret && stamp === edgeSecret && realIp) return realIp.trim();
   const fly = headers['fly-client-ip'];
   if (fly) return fly.trim();
   const fwd = headers['x-forwarded-for'];

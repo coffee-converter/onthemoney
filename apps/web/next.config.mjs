@@ -4,15 +4,10 @@ const nextConfig = {
   // dev-only mount/unmount/mount double-invoke tears the map down and leaves a
   // blank canvas. Production builds do not double-invoke.
   reactStrictMode: false,
-  // Proxy the BFF as a rewrite (Vercel edge-proxy passthrough), not a route
-  // handler. A Vercel *function* buffers the SSE response and flushes it in one
-  // batch at close, killing the live agent trace; a rewrite streams it through.
-  // The BFF is public (its secret is verified by the private agent, which the
-  // BFF calls with its own OTM_PROXY_SECRET), so no auth header is needed here.
-  async rewrites() {
-    const bff = process.env.BFF_INTERNAL_URL || 'http://localhost:3001';
-    return [{ source: '/api/bff/:path*', destination: `${bff}/:path*` }];
-  },
+  // The /api/bff/* proxy lives in middleware.ts (not a `rewrites()` entry here):
+  // it rewrites the same edge-passthrough way that streams the SSE trace, and
+  // additionally stamps each request with the true client IP for the demo rate
+  // limiter. See middleware.ts for why the stamp is needed.
 };
 
 export default nextConfig;
