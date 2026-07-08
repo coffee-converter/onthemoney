@@ -6,7 +6,22 @@ export const contentType = 'image/png';
 export const alt = 'On The Money — U.S. House campaign finance atlas';
 
 const ACCENT = '#4aa3ff';
+const IN = '#3ddc84'; // in-state money — matches the app's map legend
+const OUT = '#ff9d3c'; // out-of-state money
 const CHIPS = ['Grounded', 'Cited', 'Calibrated'];
+
+// Faint "money-flow beams" converging on a district — the app's signature viz,
+// in its own green/amber legend colors (deliberately not partisan red/blue).
+const HUB = { x: 600, y: 300 };
+const BEAMS = [
+  { x: 110, y: 130, c: IN },
+  { x: 1090, y: 140, c: OUT },
+  { x: 150, y: 500, c: OUT },
+  { x: 1060, y: 520, c: IN },
+  { x: 55, y: 310, c: IN },
+  { x: 1150, y: 320, c: OUT },
+  { x: 610, y: 600, c: OUT },
+];
 
 export default function OgImage() {
   return new ImageResponse(
@@ -18,6 +33,7 @@ export default function OgImage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          position: 'relative',
           background: '#0a0e13',
           // soft accent glow over a subtle top-to-bottom depth gradient
           backgroundImage:
@@ -25,6 +41,29 @@ export default function OgImage() {
             'linear-gradient(180deg, #0c1220 0%, #080b10 100%)',
         }}
       >
+        {/* Money-flow beams (behind the content): donor states converging on a district. */}
+        <svg width="1200" height="630" viewBox="0 0 1200 630" style={{ position: 'absolute', top: 0, left: 0 }}>
+          {BEAMS.map((b, i) => {
+            const cx = (b.x + HUB.x) / 2 + (i % 2 ? 70 : -70);
+            const cy = (b.y + HUB.y) / 2 - 50;
+            return (
+              <path
+                key={`beam-${i}`}
+                d={`M ${b.x} ${b.y} Q ${cx} ${cy} ${HUB.x} ${HUB.y}`}
+                stroke={b.c}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                fill="none"
+                opacity="0.22"
+              />
+            );
+          })}
+          {BEAMS.map((b, i) => (
+            <circle key={`dot-${i}`} cx={b.x} cy={b.y} r="8" fill={b.c} opacity="0.6" />
+          ))}
+          <circle cx={HUB.x} cy={HUB.y} r="7" fill={ACCENT} opacity="0.55" />
+        </svg>
+
         {/* Central safe area (~80%): survives square (iMessage/Slack) and 2:1 (Twitter) crops. */}
         <div
           style={{
@@ -66,9 +105,9 @@ export default function OgImage() {
             On The Money
           </div>
 
-          <div style={{ color: '#9aa4b2', fontSize: 35, marginTop: 24, maxWidth: 880, lineHeight: 1.3 }}>
-            Ask about U.S. House campaign finance. An AI agent resolves it against real FEC
-            filings — then draws the money on a live map.
+          <div style={{ color: '#9aa4b2', fontSize: 36, marginTop: 24, maxWidth: 860, lineHeight: 1.3 }}>
+            An AI agent that answers U.S. House campaign-finance questions from real FEC
+            filings, and maps the money.
           </div>
 
           <div style={{ display: 'flex', gap: 16, marginTop: 40 }}>

@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { Analytics } from '@vercel/analytics/react';
 
 const DESCRIPTION =
-  'Ask a plain-English question about U.S. House campaign finance. An AI agent resolves it against real FEC filings — grounded, cited, and calibrated — and draws the money on a live map.';
+  'An AI agent that answers your U.S. House campaign-finance questions from real FEC filings. Grounded, cited, calibrated, and mapped.';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://onthemoney.fyi'),
@@ -44,7 +44,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body>
         <nav className="topnav">
-          <a href="/" className="brand">On The Money</a>
+          <a href="/" className="brand">
+            <span className="brand-mark">$</span>
+            <span className="brand-word">On The Money</span>
+          </a>
           <div className="topnav-links">
             <a href="/">Atlas</a>
             <a href="/scoreboard">Scoreboard</a>
