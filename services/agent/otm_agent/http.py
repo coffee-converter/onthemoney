@@ -1,3 +1,4 @@
+import hmac
 import json
 import os
 from datetime import datetime, timezone
@@ -40,7 +41,9 @@ def require_proxy_secret(request: Request) -> None:
     If it is unset/empty the check is a no-op (dev/test default), so the request
     is allowed — this keeps local runs and the existing suite working."""
     secret = os.environ.get("OTM_PROXY_SECRET")
-    if secret and request.headers.get("x-otm-proxy-secret") != secret:
+    if secret and not hmac.compare_digest(
+        request.headers.get("x-otm-proxy-secret") or "", secret
+    ):
         raise HTTPException(status_code=403, detail="forbidden")
 
 
@@ -205,7 +208,9 @@ def create_app(engine: Engine | None = None,
     @app.get("/admin/usage", dependencies=[Depends(require_proxy_secret)])
     def admin_usage(request: Request):
         cfg = dg.load_demo_config()
-        if not cfg.admin_secret or request.headers.get("x-admin-secret") != cfg.admin_secret:
+        if not cfg.admin_secret or not hmac.compare_digest(
+            request.headers.get("x-admin-secret") or "", cfg.admin_secret
+        ):
             raise HTTPException(status_code=403, detail="forbidden")
         return dg.usage_summary(app.state.engine, datetime.now(timezone.utc).date())
 

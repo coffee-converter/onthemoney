@@ -6,17 +6,20 @@ import { StreamMessage } from './dto';
 export class AgentService {
   private readonly base = process.env.AGENT_URL || 'http://localhost:8000';
 
-  private agentHeaders(forwardedFor?: string): Record<string, string> {
+  // Forward the resolved client IP on the secret-gated proxy hop as a dedicated
+  // trusted header, rather than passing through the client-settable
+  // X-Forwarded-For. The agent keys its rate limiter on x-otm-client-ip.
+  private agentHeaders(clientIp?: string): Record<string, string> {
     const h: Record<string, string> = {};
     if (process.env.OTM_PROXY_SECRET) h['x-otm-proxy-secret'] = process.env.OTM_PROXY_SECRET;
-    if (forwardedFor) h['x-forwarded-for'] = forwardedFor;
+    if (clientIp) h['x-otm-client-ip'] = clientIp;
     return h;
   }
 
-  async ask(query: string): Promise<unknown> {
+  async ask(query: string, clientIp?: string): Promise<unknown> {
     const res = await fetch(`${this.base}/ask`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', ...this.agentHeaders() },
+      headers: { 'content-type': 'application/json', ...this.agentHeaders(clientIp) },
       body: JSON.stringify({ query }),
     });
     if (!res.ok) {
@@ -46,14 +49,14 @@ export class AgentService {
     return res.json();
   }
 
-  stream(query: string, forwardedFor?: string): Observable<StreamMessage> {
+  stream(query: string, clientIp?: string): Observable<StreamMessage> {
     const url = `${this.base}/ask/stream?query=${encodeURIComponent(query)}`;
     return new Observable<StreamMessage>((subscriber) => {
       const controller = new AbortController();
       (async () => {
         const res = await fetch(url, {
           signal: controller.signal,
-          headers: this.agentHeaders(forwardedFor),
+          headers: this.agentHeaders(clientIp),
         });
         if (!res.ok || !res.body) {
           throw new Error(`agent stream responded ${res.status}`);

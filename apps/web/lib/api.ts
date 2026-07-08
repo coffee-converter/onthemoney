@@ -5,10 +5,20 @@ const BASE = process.env.NEXT_PUBLIC_API_URL || '/api/bff';
 export const STREAM_EVENTS = ['tool_use', 'tool_result', 'text', 'result', 'telemetry', 'answer'];
 
 // Opens the BFF server-sent-events stream and calls onStep for each event.
+// `onError` fires once if the connection drops before the terminal `answer`
+// event arrives (BFF down, agent 5xx, network blip) — the caller uses it to
+// clear the busy state and show a retry, instead of spinning forever.
 // Returns a cleanup function that closes the stream.
-export function streamAsk(query: string, onStep: (step: Step) => void): () => void {
+export function streamAsk(
+  query: string,
+  onStep: (step: Step) => void,
+  onError?: () => void,
+): () => void {
   const url = `${BASE}/ask/stream?query=${encodeURIComponent(query)}`;
   const source = new EventSource(url);
+  // Once we've seen the terminal `answer` (or the caller tore us down), a
+  // subsequent onerror is just the normal post-close and must not be surfaced.
+  let settled = false;
   for (const name of STREAM_EVENTS) {
     source.addEventListener(name, (ev) => {
       try {
@@ -18,11 +28,23 @@ export function streamAsk(query: string, onStep: (step: Step) => void): () => vo
       } catch {
         // ignore malformed frames
       }
-      if (name === 'answer') source.close();
+      if (name === 'answer') {
+        settled = true;
+        source.close();
+      }
     });
   }
-  source.onerror = () => source.close();
-  return () => source.close();
+  source.onerror = () => {
+    source.close();
+    if (!settled) {
+      settled = true;
+      onError?.();
+    }
+  };
+  return () => {
+    settled = true;
+    source.close();
+  };
 }
 
 export async function fetchScoreboard(): Promise<ScoreboardData> {

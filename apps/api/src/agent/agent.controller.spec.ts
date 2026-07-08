@@ -22,9 +22,9 @@ describe('AgentController', () => {
   });
 
   it('proxies ask to the agent service', async () => {
-    const res: any = await controller.ask({ query: 'Who funds AZ-06?' });
+    const res: any = await controller.ask({ query: 'Who funds AZ-06?' }, { headers: {} });
     expect(res.answer.total).toBe('500.00');
-    expect(mock.ask).toHaveBeenCalledWith('Who funds AZ-06?');
+    expect(mock.ask).toHaveBeenCalledWith('Who funds AZ-06?', undefined);
   });
 
   it('relays a stream observable', (done) => {
@@ -89,6 +89,9 @@ describe('AgentService.stream telemetry relay', () => {
     await new Promise<void>((res) => svc.stream('hi', '9.9.9.9').subscribe({ complete: res }));
     const headers = new Headers(calls[0].headers);
     expect(headers.get('x-otm-proxy-secret')).toBe('shh');
-    expect(headers.get('x-forwarded-for')).toBe('9.9.9.9');
+    // The client IP travels on a dedicated trusted header, not the spoofable
+    // X-Forwarded-For.
+    expect(headers.get('x-otm-client-ip')).toBe('9.9.9.9');
+    expect(headers.get('x-forwarded-for')).toBeNull();
   });
 });

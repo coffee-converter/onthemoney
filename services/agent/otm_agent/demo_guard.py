@@ -127,6 +127,14 @@ BUDGET_MSG = ("On The Money's public demo has reached today's usage limit. It "
 
 
 def client_ip(headers) -> str:
+    # Prefer x-otm-client-ip: the BFF resolves this from the true connecting peer
+    # (Fly-Client-IP) and forwards it on the secret-gated proxy hop, so it is not
+    # client-forgeable. Raw x-forwarded-for is client-settable — keying the rate
+    # limiter on it would let a direct caller rotate the header to mint unlimited
+    # buckets — so it is only a dev/local fallback.
+    trusted = headers.get("x-otm-client-ip")
+    if trusted:
+        return trusted.strip()
     fwd = headers.get("x-forwarded-for")
     if fwd:
         return fwd.split(",")[0].strip()

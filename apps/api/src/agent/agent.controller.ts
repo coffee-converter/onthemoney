@@ -2,14 +2,18 @@ import { Body, Controller, Get, Param, Post, Query, Req, Sse } from '@nestjs/com
 import { Observable } from 'rxjs';
 import { AgentService } from './agent.service';
 import { AskDto, StreamMessage } from './dto';
+import { clientIp, sanitizeQuery } from './request';
 
 @Controller()
 export class AgentController {
   constructor(private readonly agent: AgentService) {}
 
   @Post('ask')
-  ask(@Body() dto: AskDto): Promise<unknown> {
-    return this.agent.ask(dto.query);
+  ask(
+    @Body() dto: AskDto,
+    @Req() req: { headers: Record<string, string | undefined> },
+  ): Promise<unknown> {
+    return this.agent.ask(sanitizeQuery(dto.query), clientIp(req.headers));
   }
 
   @Sse('ask/stream')
@@ -17,8 +21,7 @@ export class AgentController {
     @Query('query') query: string,
     @Req() req: { headers: Record<string, string | undefined> },
   ): Observable<StreamMessage> {
-    const fwd = req.headers['x-forwarded-for'] as string | undefined;
-    return this.agent.stream(query, fwd);
+    return this.agent.stream(sanitizeQuery(query), clientIp(req.headers));
   }
 
   @Get('district/:state/:district/candidates')

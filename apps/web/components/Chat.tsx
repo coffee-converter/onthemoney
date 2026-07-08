@@ -1,5 +1,5 @@
 'use client';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { track } from '@vercel/analytics';
@@ -95,14 +95,21 @@ export function Chat({
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Holds the active stream's cleanup so we can cancel it on unmount (and before
+  // starting a new one), so a navigated-away stream can't keep firing callbacks.
+  const streamCleanup = useRef<(() => void) | null>(null);
+  useEffect(() => () => streamCleanup.current?.(), []);
 
   function runQuery(q: string) {
     if (!q.trim() || busy) return;
     track('ask', { queryLength: q.length });
+    streamCleanup.current?.();
     setQuery(q);
     setSteps([]);
     setAnswer(null);
     setTelemetry(null);
+    setError(null);
     setBusy(true);
     onReset?.();
     let sceneRendered = false;
@@ -110,7 +117,7 @@ export function Chat({
     let cand: Candidate | null = null;
     let districtKey: string | undefined;
     let fundingCandId = '';
-    streamAsk(q, (step) => {
+    streamCleanup.current = streamAsk(q, (step) => {
       if (step.type === 'answer') {
         const a = step as unknown as Answer;
         setAnswer(a);
@@ -208,6 +215,11 @@ export function Chat({
         onScene(step.payload as unknown as Scene);
         sceneRendered = true;
       }
+    }, () => {
+      // The stream dropped before an answer arrived. Clear the spinner and let
+      // the user retry rather than leaving "Working…" hanging forever.
+      setBusy(false);
+      setError('The connection dropped before the answer finished. Please try again.');
     });
   }
 
@@ -269,6 +281,15 @@ export function Chat({
           </li>
         )}
       </ol>
+
+      {error && (
+        <div className="chat-error" role="alert">
+          <span>{error}</span>
+          <button type="button" className="chat-retry" onClick={() => runQuery(query)}>
+            Retry
+          </button>
+        </div>
+      )}
 
       {answer && (
         <div className="answer">

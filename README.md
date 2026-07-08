@@ -1,19 +1,27 @@
 # On The Money
 
+### ▶ Live demo — **[onthemoney.fyi](https://onthemoney.fyi)**
+
 A conversational accountability atlas for U.S. House campaign finance. Ask a question in plain English, and an agent resolves it against real FEC filings, analyzes the money, draws the answer on a live map, and reports it with citations and a calibrated confidence score.
 
-`onthemoney.fyi`
-
 [![CI](https://github.com/coffee-converter/onthemoney/actions/workflows/ci.yml/badge.svg)](https://github.com/coffee-converter/onthemoney/actions/workflows/ci.yml)
+
+<!-- HERO: drop an ~8-second GIF here — type a question, watch the streamed tool
+     trace and the money-flow map draw in. This is the single highest-impact
+     addition to the README. Capture at ~1000px wide, save to docs/hero.gif, then:
+     ![On The Money answering a question](docs/hero.gif) -->
+
+> **Recruiter / reviewer note:** the fastest way to see this is the live demo above —
+> ask *"Who funds the representative in NY-14?"* and watch the agent work.
 
 ## Why it's different
 
 Most conversational data products can't tell you whether their answers are trustworthy. On The Money works in a domain with objective, computable ground truth: campaign-finance filings are a matter of record. That lets the agent be graded against facts rather than opinion.
 
-- **Grounded.** Every figure the agent states comes from a tool result, not the model's memory. Even the visualizations are grounded: the agent describes what to draw in semantic terms (district ids, values, colors) and the backend resolves them to real coordinates, so a map is provably correct or it does not render.
-- **Cited.** Answers link back to the source committee filings.
-- **Calibrated.** Confidence is honest, with an explicit "insufficient evidence" state instead of a confident guess.
-- **Verifiable.** A golden-dataset eval harness with deterministic graders runs in CI and backs a public accuracy scoreboard.
+- **Grounded.** The numbers an answer reports — totals, industry and geographic breakdowns, rankings — come from tool calls against the FEC data, not the model's memory, and are returned as structured fields alongside the prose so they can be checked. The visualizations are grounded the same way: the agent names what to draw in semantic terms (district ids, values, colors) and the backend resolves them to real coordinates, so a map is provably correct or it does not render.
+- **Cited.** Where an answer resolves a specific candidate, it links back to that candidate's FEC committee filings.
+- **Calibrated.** Each answer commits to a confidence state — high, partial, or an explicit "insufficient evidence" instead of a confident guess — and that calibration is graded against ground truth by the eval harness (a Brier score on the public scoreboard), not merely asserted.
+- **Verifiable.** A golden-dataset eval harness with deterministic graders runs in CI and backs the public accuracy scoreboard.
 
 ## What you can ask
 
@@ -54,7 +62,7 @@ Itemized individual contributions carry donor geography and employer detail. Sma
 
 - `services/data`: deterministic FEC ground-truth store (Postgres). Bulk ingest, typed queries, no inference.
 - `services/agent`: Python agent. A shared tool registry drives a standalone MCP server, a pure-Python Anthropic tool-use runtime, a LangGraph verify-and-calibrate step, and a FastAPI service with streaming.
-- `services/eval`: golden dataset, deterministic graders, a CI gate that fails on regression, and the scoreboard.
+- `services/eval`: golden dataset, deterministic graders, a CI gate that fails on regression, and the accuracy scoreboard (a snapshot regenerated with `make regenerate`).
 - `apps/api`: NestJS backend-for-frontend. Typed contracts, server-sent-event stream relay, scoreboard endpoint.
 - `apps/web`: Next.js and MapLibre. The steerable atlas, the streamed step trace, calibrated confidence, and citations.
 

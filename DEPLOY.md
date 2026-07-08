@@ -5,14 +5,14 @@ a container host (this guide uses **Fly.io**; Railway/Render work the same way
 from the Dockerfiles) runs the two private backend services.
 
 ```
-Browser ─► Vercel (Next.js web + /api/bff proxy, PUBLIC)
-             │  injects OTM_PROXY_SECRET, forwards client IP
+Browser ─► Vercel (Next.js web + /api/bff rewrite, PUBLIC)
+             │  same-origin proxy to the BFF
              ▼
            BFF (NestJS, container host)  ──►  Agent (FastAPI, container host, PRIVATE)
-             AGENT_URL → agent                 verifies OTM_PROXY_SECRET (rejects if missing)
-                                               OTM_DATABASE_URL → Neon
-                                               ANTHROPIC_API_KEY, demo-guard env
-                                                        │
+             AGENT_URL → agent            │    verifies OTM_PROXY_SECRET (rejects if missing)
+             injects OTM_PROXY_SECRET ────┘    OTM_DATABASE_URL → Neon
+             resolves client IP (Fly-Client-IP) ANTHROPIC_API_KEY, demo-guard env
+             → x-otm-client-ip                          │
                                                         ▼
                                                      Neon Postgres
 ```
@@ -44,8 +44,9 @@ cache, shared-secret gate) lives in the agent and activates when
 | `OTM_DEMO_DAILY_USD` | ✅ | | | `5.00` (tune freely) |
 | `OTM_PROXY_SECRET` | ✅ | ✅ | ✅ | same random value everywhere |
 | `OTM_ADMIN_SECRET` | ✅ | | | random value (gates `/admin/usage`) |
-| `AGENT_URL` | | ✅ | | agent's private URL, e.g. `http://otm-agent.internal:8000` |
-| `BFF_INTERNAL_URL` | | | ✅ | BFF's public URL, e.g. `https://otm-bff.fly.dev` |
+| `AGENT_URL` | | ✅ | | agent's private URL, e.g. `http://onthemoney-agent.internal:8000` |
+| `BFF_INTERNAL_URL` | | | ✅ | BFF's public URL, e.g. `https://onthemoney-bff.fly.dev` |
+| `WEB_ORIGIN` | | ○ | | *optional* — set only to allow cross-origin browser calls to the BFF. Leave unset for the default same-origin `/api/bff` setup. |
 | `NEXT_PUBLIC_API_URL` | | | leave **unset** | so the client uses the same-origin `/api/bff` proxy |
 
 ## Step 1 — Neon Postgres
@@ -77,40 +78,42 @@ cache, shared-secret gate) lives in the agent and activates when
 
 **Agent** (private — no public services). `fly.toml` in `services/agent`:
 ```toml
-app = "otm-agent"
+app = "onthemoney-agent"
 primary_region = "iad"
 [build]
   dockerfile = "Dockerfile"
 [env]
   OTM_DEMO_ENABLED = "1"
   OTM_DEMO_DAILY_USD = "5.00"
-# No [http_service] block → no public endpoint; reachable only at otm-agent.internal:8000
+# No [http_service] block → no public endpoint; reachable only at onthemoney-agent.internal:8000
 ```
 The agent's Dockerfile builds from the **repo root** (it bundles the `otm_data`
 path dep), so deploy with an explicit context:
 ```bash
 fly deploy --config services/agent/fly.toml --dockerfile services/agent/Dockerfile .
-fly secrets set --app otm-agent \
+fly secrets set --app onthemoney-agent \
   OTM_DATABASE_URL="$OTM_DATABASE_URL" ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
   OTM_PROXY_SECRET="$OTM_PROXY_SECRET" OTM_ADMIN_SECRET="$OTM_ADMIN_SECRET"
 ```
 
 **BFF** (public — Vercel reaches it). `fly.toml` in `apps/api`:
 ```toml
-app = "otm-bff"
+app = "onthemoney-bff"
 primary_region = "iad"
 [build]
   dockerfile = "Dockerfile"
 [http_service]
   internal_port = 3001
   force_https = true
-  auto_stop_machines = true
-  min_machines_running = 0
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  # Keep one machine warm so the scoreboard / first /ask don't pay a cold start.
+  min_machines_running = 1
 ```
 ```bash
 fly deploy --config apps/api/fly.toml apps/api
-fly secrets set --app otm-bff \
-  AGENT_URL="http://otm-agent.internal:8000" OTM_PROXY_SECRET="$OTM_PROXY_SECRET"
+fly secrets set --app onthemoney-bff \
+  AGENT_URL="http://onthemoney-agent.internal:8000" OTM_PROXY_SECRET="$OTM_PROXY_SECRET"
 ```
 The BFF being public is safe: the agent verifies `OTM_PROXY_SECRET`, so a request
 reaching the BFF without the secret is rejected downstream (403).
@@ -132,7 +135,7 @@ proxy (which injects the secret the browser's `EventSource` cannot send).
 
 - `curl https://<your-vercel-app>/api/bff/scoreboard` → scoreboard JSON.
 - Open the app, ask a question, confirm the streamed answer + map render.
-- `curl -H "x-admin-secret: $OTM_ADMIN_SECRET" http://otm-agent.internal:8000/admin/usage`
+- `curl -H "x-admin-secret: $OTM_ADMIN_SECRET" http://onthemoney-agent.internal:8000/admin/usage`
   (from a Fly machine or via `fly ssh`) → today's spend/requests/cache counts.
 - Direct-hit the BFF without the secret → expect a 403 from the agent, proving
   the gate holds.
