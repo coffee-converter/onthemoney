@@ -111,7 +111,7 @@ primary_region = "iad"
   min_machines_running = 1
 ```
 ```bash
-fly deploy --config apps/api/fly.toml apps/api
+fly deploy apps/api   # auto-detects apps/api/fly.toml
 fly secrets set --app onthemoney-bff \
   AGENT_URL="http://onthemoney-agent.internal:8000" OTM_PROXY_SECRET="$OTM_PROXY_SECRET"
 ```

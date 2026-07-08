@@ -49,7 +49,7 @@ const JSON_LD = {
 export const metadata: Metadata = {
   metadataBase: new URL('https://onthemoney.fyi'),
   title: {
-    default: 'On The Money — U.S. House campaign finance atlas',
+    default: 'On The Money: U.S. House campaign finance atlas',
     template: '%s · On The Money',
   },
   description: DESCRIPTION,
@@ -68,12 +68,12 @@ export const metadata: Metadata = {
     type: 'website',
     url: 'https://onthemoney.fyi',
     siteName: 'On The Money',
-    title: 'On The Money — U.S. House campaign finance atlas',
+    title: 'On The Money: U.S. House campaign finance atlas',
     description: DESCRIPTION,
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'On The Money — U.S. House campaign finance atlas',
+    title: 'On The Money: U.S. House campaign finance atlas',
     description: DESCRIPTION,
   },
   robots: { index: true, follow: true },

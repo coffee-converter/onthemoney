@@ -19,7 +19,7 @@ export default function Error({
       <div className="notice-code">Oops</div>
       <h1>Something went wrong</h1>
       <p>
-        The app hit an unexpected error while handling that request. You can try again — if
+        The app hit an unexpected error while handling that request. You can try again. If
         it keeps happening, reload the page or head back to the atlas.
       </p>
       <div className="notice-actions">

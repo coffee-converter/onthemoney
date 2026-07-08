@@ -44,7 +44,7 @@ export function HowItWorks() {
           </div>
         )}
         <p className="subtle">
-          These are the <strong>deterministic recorded baseline</strong> — the reference
+          These are the <strong>deterministic recorded baseline</strong>: the reference
           replay the CI gate grades against ground truth. Real-model accuracy comes from the
           live eval run (<code>run_live</code>).
         </p>
@@ -52,7 +52,7 @@ export function HowItWorks() {
           <h3>A caught regression</h3>
           <p>Seed a units bug that drifts every high-confidence total 10% low
           (e.g. case <code>{r.case}</code>: {r.clean_total} → {r.broken_total}, across
-          {' '}{r.cases_affected} cases), still reported confidently — and the gate flips
+          {' '}{r.cases_affected} cases), still reported confidently, and the gate flips
           from pass to fail:</p>
           <table>
             <thead><tr><th></th><th>accuracy</th><th>Brier</th><th>gate</th></tr></thead>

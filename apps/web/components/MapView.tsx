@@ -40,6 +40,11 @@ const REGION_SRC = 'otm-overlay-regions';
 
 const EMPTY_FC = { type: 'FeatureCollection', features: [] };
 
+// Gentle ease-in-out for camera moves, so the zoom to/from a district glides in
+// and out instead of snapping.
+const easeInOutCubic = (t: number): number =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
 type Ring = [number, number][];
 
 function boundsOf(geom: { type: string; coordinates: unknown }): maplibregl.LngLatBoundsLike {
@@ -247,7 +252,7 @@ export function MapView({
       style: DARK_STYLE as maplibregl.StyleSpecification,
       center: [-93, 40],
       zoom: 3.4,
-      attributionControl: { compact: true }, // collapsed "i" button by default
+      attributionControl: { compact: true }, // compact ⓘ; dark-styled + hover-reveal via CSS
     });
     map.on('load', () => {
       ready.current = true;
@@ -851,7 +856,12 @@ export function MapView({
         startPulse();
         clearFlows();
         if (districtGeom) {
-          map.fitBounds(boundsOf(districtGeom), { padding: 70, duration: 1000, maxZoom: 12 });
+          map.fitBounds(boundsOf(districtGeom), {
+            padding: 70,
+            duration: 1400,
+            maxZoom: 12,
+            easing: easeInOutCubic,
+          });
         }
         placeAll();
         return;
@@ -878,8 +888,14 @@ export function MapView({
           const o = STATE_CENTROIDS[f.state.toUpperCase()];
           if (o) bounds.extend(o);
         }
-        map.fitBounds(bounds, { padding: 110, duration: 1200, maxZoom: 9 });
-        animTimeoutRef.current = setTimeout(() => animateFlows(scene, center), 1250);
+        map.fitBounds(bounds, {
+          padding: 110,
+          duration: 1600,
+          maxZoom: 9,
+          easing: easeInOutCubic,
+        });
+        // Start drawing the beams just after the zoom-out settles.
+        animTimeoutRef.current = setTimeout(() => animateFlows(scene, center), 1650);
       };
       // Even if funding is fast, keep the district framed (pulsing) at least 2s.
       const wait = Math.max(0, 2000 - (performance.now() - loadingStartRef.current));

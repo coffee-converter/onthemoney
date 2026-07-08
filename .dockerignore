@@ -2,7 +2,6 @@
 # services/agent only). Keep the upload small by excluding everything heavy.
 .git
 .devlogs
-.superpowers
 **/node_modules
 **/.venv
 **/__pycache__

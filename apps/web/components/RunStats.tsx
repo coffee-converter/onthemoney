@@ -21,7 +21,7 @@ export function RunStats({ telemetry }: { telemetry: Telemetry }) {
         {t.tool_calls} tools · {secs}s · {tokens(t.input_tokens + t.output_tokens)} ·{' '}
         {cost(t.est_cost_usd)} ·{' '}
         <span className={failed ? 'run-stats-warn' : ''}>
-          {failed ? `${t.tool_failures} tool${t.tool_failures === 1 ? '' : 's'} failed — recovered` : '0 failures'}
+          {failed ? `${t.tool_failures} tool${t.tool_failures === 1 ? '' : 's'} failed, recovered` : '0 failures'}
         </span>
         {' '}<a href="/how-it-works">how this works ▸</a>
       </summary>

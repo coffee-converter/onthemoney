@@ -19,6 +19,8 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: ui-sans-serif, system-ui, sans-serif;
+  /* No elastic overscroll: the rubber-band bounce drags the sticky nav off-screen. */
+  overscroll-behavior: none;
 }
 
 body {
@@ -26,6 +28,9 @@ body {
 }
 
 .topnav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -967,4 +972,80 @@ summary:focus-visible,
     overflow-x: auto;
     white-space: nowrap;
   }
+}
+
+/* Map attribution (MapLibre): a dark ⓘ *circle* that expands on hover/focus into
+   a dark pill with light text. The inner is hidden with !important so it stays
+   collapsed from the first paint — no expand→collapse flash on load. Shape props
+   use !important to beat MapLibre's own expanded (-show) rules. */
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  width: 26px !important;
+  height: 26px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border-radius: 50% !important; /* collapsed = circle */
+  background: rgba(13, 17, 23, 0.85) !important;
+  border: 1px solid var(--line);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* the ⓘ glyph — centered in the circle and recolored light */
+.maplibregl-ctrl-attrib.maplibregl-compact .maplibregl-ctrl-attrib-button {
+  inset: 0;
+  left: 0 !important;
+  right: auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  background-color: transparent !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 15px 15px !important;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='%23c9d1d9' fill-rule='evenodd' viewBox='0 0 20 20'%3E%3Cpath d='M4 10a6 6 0 1 0 12 0 6 6 0 1 0-12 0m5-3a1 1 0 1 0 2 0 1 1 0 1 0-2 0m0 3a1 1 0 1 1 2 0v3a1 1 0 1 1-2 0'/%3E%3C/svg%3E") !important;
+}
+
+/* collapsed: hide the text (from first paint → no flash) */
+.maplibregl-ctrl-attrib.maplibregl-compact .maplibregl-ctrl-attrib-inner {
+  display: none !important;
+}
+
+/* expanded on hover/focus: grow to a pill, reveal light text, ⓘ pinned right */
+.maplibregl-ctrl-attrib.maplibregl-compact:hover,
+.maplibregl-ctrl-attrib.maplibregl-compact:focus-within {
+  display: flex;
+  align-items: center; /* vertically center the text in the fixed height */
+  width: auto !important;
+  height: 26px !important; /* exactly match the collapsed circle */
+  min-height: 0 !important;
+  padding: 0 30px 0 11px !important;
+  border-radius: 13px !important; /* = height/2, full capsule ends */
+  overflow: visible;
+}
+
+.maplibregl-ctrl-attrib.maplibregl-compact:hover .maplibregl-ctrl-attrib-button,
+.maplibregl-ctrl-attrib.maplibregl-compact:focus-within .maplibregl-ctrl-attrib-button {
+  inset: auto !important;
+  left: auto !important;
+  right: 4px !important;
+  top: 50% !important;
+  width: 18px !important;
+  height: 18px !important;
+  transform: translateY(-50%);
+}
+
+.maplibregl-ctrl-attrib.maplibregl-compact:hover .maplibregl-ctrl-attrib-inner,
+.maplibregl-ctrl-attrib.maplibregl-compact:focus-within .maplibregl-ctrl-attrib-inner {
+  display: block !important;
+  color: #c9d1d9 !important;
+}
+
+/* light attribution text + links */
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-inner,
+.maplibregl-ctrl-attrib a {
+  color: #c9d1d9;
+}
+
+.maplibregl-ctrl-attrib a:hover {
+  color: var(--accent);
 }

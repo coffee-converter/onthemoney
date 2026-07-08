@@ -4,8 +4,8 @@ from mcp.server.lowlevel import Server
 import mcp.types as types
 from otm_agent.registry import tool_specs, get_spec
 
-# A standalone MCP server exposing the FEC oracle tools. Any MCP client
-# (Claude Desktop, Claude Code, Cursor, or the runtime loop) can consume it.
+# A standalone MCP server exposing the FEC oracle tools. Any MCP client, or the
+# in-process runtime loop, can consume it.
 # Tool definitions come straight from the shared registry, so schemas and
 # handlers are never duplicated.
 

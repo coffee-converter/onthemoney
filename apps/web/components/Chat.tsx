@@ -116,6 +116,7 @@ export function Chat({
     let loadingScenePending = false;
     let cand: Candidate | null = null;
     let districtKey: string | undefined;
+    let pulsedKey = '';
     let fundingCandId = '';
     streamCleanup.current = streamAsk(q, (step) => {
       if (step.type === 'answer') {
@@ -151,14 +152,20 @@ export function Chat({
         const rawDi = step.input.district;
         if (st.length === 2 && rawDi != null && rawDi !== '') {
           districtKey = `${st}-${String(rawDi).padStart(2, '0')}`;
-          onCandidate(null); // swap out the old card only once a new district is understood
-          onScene({
-            highlight: { state: st, district: String(rawDi).padStart(2, '0') },
-            camera: { type: 'flyTo', lon: 0, lat: 0, zoom: 7 },
-            flows: [],
-            loading: true,
-          });
-          loadingScenePending = true;
+          // The agent can call resolve_entity more than once in a run; only pulse
+          // and zoom to a given district the first time, so the map doesn't
+          // re-zoom to the same seat twice.
+          if (districtKey !== pulsedKey) {
+            pulsedKey = districtKey;
+            onCandidate(null); // swap out the old card only once a new district is understood
+            onScene({
+              highlight: { state: st, district: String(rawDi).padStart(2, '0') },
+              camera: { type: 'flyTo', lon: 0, lat: 0, zoom: 7 },
+              flows: [],
+              loading: true,
+            });
+            loadingScenePending = true;
+          }
         }
       }
       setSteps((prev) => [...prev, step]);
@@ -312,7 +319,11 @@ export function Chat({
             </div>
           )}
           <div className="answer-body">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{answer.text}</ReactMarkdown>
+            {/* singleTilde:false so the model's "~$80k" (approximately) isn't parsed
+                as GFM strikethrough — only real ~~strike~~ is. */}
+            <ReactMarkdown remarkPlugins={[[remarkGfm, { singleTilde: false }]]}>
+              {answer.text}
+            </ReactMarkdown>
           </div>
           <Citations items={answer.citations} />
         </div>

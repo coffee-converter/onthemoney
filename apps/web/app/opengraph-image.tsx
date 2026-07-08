@@ -3,7 +3,7 @@ import { ImageResponse } from 'next/og';
 // Generated social-share image (1200x630). Next wires this into og:image/twitter:image.
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
-export const alt = 'On The Money — U.S. House campaign finance atlas';
+export const alt = 'On The Money: U.S. House campaign finance atlas';
 
 const ACCENT = '#4aa3ff';
 const IN = '#3ddc84'; // in-state money — matches the app's map legend
