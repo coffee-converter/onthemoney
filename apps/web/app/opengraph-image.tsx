@@ -14,15 +14,10 @@ const CHIPS = ['Grounded', 'Cited', 'Calibrated'];
 // money along thin lines to one district (the hub). Green = the in-state home,
 // amber = out-of-state donors — the app's own legend, deliberately not
 // partisan red/blue. Hub is offset from center so it doesn't sit behind the text.
-const HUB = { x: 700, y: 360 };
+const HUB = { x: 600, y: 315 };
 const BEAMS = [
-  { x: 120, y: 170, c: OUT },
-  { x: 75, y: 405, c: OUT },
-  { x: 300, y: 545, c: OUT },
-  { x: 1095, y: 165, c: OUT },
-  { x: 1140, y: 420, c: OUT },
-  { x: 560, y: 565, c: OUT },
-  { x: 520, y: 235, c: IN }, // the one green: the district's own (in-state) money
+  { x: 95, y: 250, c: IN }, // left: the district's own (in-state) money
+  { x: 1105, y: 385, c: OUT }, // right: out-of-state money
 ];
 
 export default function OgImage() {
