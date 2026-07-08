@@ -38,6 +38,8 @@ const DARK_STYLE = {
 const OVERLAY_SRC = 'otm-overlay-points';
 const REGION_SRC = 'otm-overlay-regions';
 
+const EMPTY_FC = { type: 'FeatureCollection', features: [] };
+
 type Ring = [number, number][];
 
 function boundsOf(geom: { type: string; coordinates: unknown }): maplibregl.LngLatBoundsLike {
@@ -508,7 +510,6 @@ export function MapView({
       animRef.current = requestAnimationFrame(frame);
     };
 
-    const EMPTY_FC = { type: 'FeatureCollection', features: [] };
     const clearOverlay = () => {
       for (const id of [OVERLAY_SRC, REGION_SRC]) {
         const s = map.getSource(id) as maplibregl.GeoJSONSource | undefined;
