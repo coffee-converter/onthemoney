@@ -10,17 +10,19 @@ const IN = '#3ddc84'; // in-state money — matches the app's map legend
 const OUT = '#ff9d3c'; // out-of-state money
 const CHIPS = ['Grounded', 'Cited', 'Calibrated'];
 
-// Faint "money-flow beams" converging on a district — the app's signature viz,
-// in its own green/amber legend colors (deliberately not partisan red/blue).
-const HUB = { x: 600, y: 300 };
+// Faint "money-flow beams" like the app's map: donor states (dots) sending
+// money along thin lines to one district (the hub). Green = the in-state home,
+// amber = out-of-state donors — the app's own legend, deliberately not
+// partisan red/blue. Hub is offset from center so it doesn't sit behind the text.
+const HUB = { x: 700, y: 360 };
 const BEAMS = [
-  { x: 110, y: 130, c: IN },
-  { x: 1090, y: 140, c: OUT },
-  { x: 150, y: 500, c: OUT },
-  { x: 1060, y: 520, c: IN },
-  { x: 55, y: 310, c: IN },
-  { x: 1150, y: 320, c: OUT },
-  { x: 610, y: 600, c: OUT },
+  { x: 120, y: 170, c: OUT },
+  { x: 75, y: 405, c: OUT },
+  { x: 300, y: 545, c: OUT },
+  { x: 1095, y: 165, c: OUT },
+  { x: 1140, y: 420, c: OUT },
+  { x: 560, y: 565, c: OUT },
+  { x: 520, y: 235, c: IN }, // the one green: the district's own (in-state) money
 ];
 
 export default function OgImage() {
@@ -43,25 +45,27 @@ export default function OgImage() {
       >
         {/* Money-flow beams (behind the content): donor states converging on a district. */}
         <svg width="1200" height="630" viewBox="0 0 1200 630" style={{ position: 'absolute', top: 0, left: 0 }}>
-          {BEAMS.map((b, i) => {
-            const cx = (b.x + HUB.x) / 2 + (i % 2 ? 70 : -70);
-            const cy = (b.y + HUB.y) / 2 - 50;
-            return (
-              <path
-                key={`beam-${i}`}
-                d={`M ${b.x} ${b.y} Q ${cx} ${cy} ${HUB.x} ${HUB.y}`}
-                stroke={b.c}
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                fill="none"
-                opacity="0.22"
-              />
-            );
-          })}
           {BEAMS.map((b, i) => (
-            <circle key={`dot-${i}`} cx={b.x} cy={b.y} r="8" fill={b.c} opacity="0.6" />
+            <path
+              key={`beam-${i}`}
+              d={`M ${b.x} ${b.y} L ${HUB.x} ${HUB.y}`}
+              stroke={b.c}
+              strokeWidth="1.5"
+              fill="none"
+              opacity="0.1"
+            />
           ))}
-          <circle cx={HUB.x} cy={HUB.y} r="7" fill={ACCENT} opacity="0.55" />
+          {BEAMS.map((b, i) => (
+            <circle
+              key={`dot-${i}`}
+              cx={b.x}
+              cy={b.y}
+              r={b.c === IN ? 8 : 6}
+              fill={b.c}
+              opacity={b.c === IN ? 0.6 : 0.3}
+            />
+          ))}
+          <circle cx={HUB.x} cy={HUB.y} r="6" fill={ACCENT} opacity="0.45" />
         </svg>
 
         {/* Central safe area (~80%): survives square (iMessage/Slack) and 2:1 (Twitter) crops. */}

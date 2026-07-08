@@ -1,0 +1,5 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "comment": "Root Directory is apps/web. Skip the build unless files in apps/web changed (agent/BFF/data deploy to Fly, not Vercel). Exit 0 = skip, exit 1 = build.",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- ."
+}
