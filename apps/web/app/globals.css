@@ -73,6 +73,26 @@ body {
   font-weight: 600;
 }
 
+.topnav .builtby {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 13px;
+  margin-left: 0.25rem;
+  padding-left: 0.9rem;
+  border-left: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.topnav .builtby a {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.topnav .builtby a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .layout {
   display: flex;
   height: calc(100vh - 48px);
@@ -184,6 +204,10 @@ body {
   }
   .topnav a {
     font-size: 12.5px;
+  }
+  /* The nav is tight on phones — drop the build credit here (kept on desktop). */
+  .topnav .builtby {
+    display: none;
   }
   .page {
     padding: 1rem;
