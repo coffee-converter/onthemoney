@@ -95,13 +95,22 @@ def _top_candidates(engine: Engine, args: dict) -> dict:
                             "value": float(r.value)} for r in rows]}
 
 
+def _valid_ranked_districts(engine: Engine, metric: str, order: str, limit: int) -> list:
+    # Over-fetch, then keep only real, mappable seats: the raw FEC filings carry
+    # phantom district numbers (e.g. AZ-20, which does not exist) with no boundary
+    # geometry, and those must not appear in a ranking or be handed to a map.
+    rows = rank_districts(engine, metric=metric, order=order, limit=limit * 4 + 20)
+    valid = [r for r in rows if district_centroid(r.state, r.district) is not None]
+    return valid[:limit]
+
+
 def _rank_districts(engine: Engine, args: dict) -> dict:
     metric = args.get("metric") or "receipts"
     if metric not in ("receipts", "itemized", "individual"):
         metric = "receipts"
     order = "desc" if str(args.get("order", "asc")).lower() == "desc" else "asc"
     limit = min(int(args.get("limit") or 10), 25)
-    rows = rank_districts(engine, metric=metric, order=order, limit=limit)
+    rows = _valid_ranked_districts(engine, metric, order, limit)
     return {"metric": metric, "order": order, "insufficient": len(rows) == 0,
             "districts": [
         {"district": f"{r.state}-{r.district}", "state": r.state,
@@ -353,11 +362,9 @@ def _map_districts(engine: Engine, args: dict) -> dict:
         metric = "receipts"
     order = "desc" if str(args.get("order", "desc")).lower() == "desc" else "asc"
     limit = min(int(args.get("limit") or 10), 40)
-    rows = rank_districts(engine, metric=metric, order=order, limit=limit)
+    rows = _valid_ranked_districts(engine, metric, order, limit)
     regions = []
     for r in rows:
-        if district_centroid(r.state, r.district) is None:
-            continue
         pl = _PARTY_LETTER.get((r.party or "").upper())
         name = r.name.split(",")[0].title() if "," in r.name else r.name
         regions.append({"place": f"{r.state}-{r.district}", "value": float(r.value),
