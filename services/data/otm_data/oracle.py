@@ -56,6 +56,18 @@ def resolve_candidate(engine: Engine, *, state: str, district: str,
     return CandidateRef(*row) if row else None
 
 
+def candidate_by_id(engine: Engine, cand_id: str, *,
+                    election_yr: int = 2024) -> CandidateRef | None:
+    # Direct lookup of a candidate by FEC id - used when a tool already holds an
+    # id (e.g. comparing two candidates the user named).
+    with engine.connect() as conn:
+        row = conn.execute(text(
+            "SELECT cand_id, name, party, office_state, district FROM candidates "
+            "WHERE cand_id = :c AND election_yr = :yr LIMIT 1"
+        ), {"c": cand_id, "yr": election_yr}).first()
+    return CandidateRef(*row) if row else None
+
+
 def committees_for_candidate(engine: Engine, cand_id: str, *,
                              election_yr: int = 2024) -> list[str]:
     with engine.connect() as conn:
@@ -331,29 +343,40 @@ class RankedDistrict:
     value: Decimal
 
 
-def rank_districts(engine: Engine, *, order: str = "asc", limit: int = 10,
-                   election_yr: int = 2024) -> list[RankedDistrict]:
-    # Rank every House district nationwide by its leading candidate's itemized
-    # individual receipts (the same leader resolve_candidate and state_field
-    # pick), ascending (least-funded first) or descending. One row per district.
+def rank_districts(engine: Engine, *, metric: str = "receipts", order: str = "asc",
+                   limit: int = 10, election_yr: int = 2024) -> list[RankedDistrict]:
+    # Rank every House district nationwide by its leading candidate's funding,
+    # ascending (least-funded first) or descending. One row per district, the
+    # leader being the district's highest-funded candidate on the same metric.
+    #
+    # Default metric is 'receipts' (official FEC total raised): it is complete
+    # for every filer, so it is the honest "how much did this seat raise". The
+    # itemized-contribution table is a bounded slice, so ranking by 'itemized'
+    # can surface coverage gaps (districts with no itemized rows) as false zeros.
     direction = "ASC" if str(order).lower() == "asc" else "DESC"
+    if metric == "itemized":
+        val = "COALESCE(SUM(ct.amount), 0)"
+        joins = ("LEFT JOIN candidate_committee cc "
+                 "  ON cc.cand_id = c.cand_id AND cc.election_yr = c.election_yr "
+                 "LEFT JOIN contributions ct "
+                 "  ON ct.cmte_id = cc.cmte_id AND COALESCE(ct.memo_cd, '') <> 'X' ")
+    else:  # receipts (default) or individual: official FEC totals
+        col = "individual_total" if metric == "individual" else "receipts"
+        val = f"COALESCE(MAX(t.{col}), 0)"
+        joins = "LEFT JOIN candidate_totals t ON t.cand_id = c.cand_id AND t.cycle = :yr "
+    sql = (
+        "SELECT office_state, district, cand_id, name, party, v FROM ("
+        "  SELECT DISTINCT ON (c.office_state, c.district) "
+        f"    c.office_state, c.district, c.cand_id, c.name, c.party, {val} AS v "
+        f"  FROM candidates c {joins}"
+        "  WHERE c.office = 'H' AND c.election_yr = :yr "
+        "  GROUP BY c.office_state, c.district, c.cand_id, c.name, c.party "
+        "  ORDER BY c.office_state, c.district, v DESC"
+        ") leaders "
+        f"ORDER BY v {direction}, office_state, district LIMIT :lim"
+    )
     with engine.connect() as conn:
-        rows = conn.execute(text(
-            "SELECT office_state, district, cand_id, name, party, itemized FROM ("
-            "  SELECT DISTINCT ON (c.office_state, c.district) "
-            "    c.office_state, c.district, c.cand_id, c.name, c.party, "
-            "    COALESCE(SUM(ct.amount), 0) AS itemized "
-            "  FROM candidates c "
-            "  LEFT JOIN candidate_committee cc "
-            "    ON cc.cand_id = c.cand_id AND cc.election_yr = c.election_yr "
-            "  LEFT JOIN contributions ct "
-            "    ON ct.cmte_id = cc.cmte_id AND COALESCE(ct.memo_cd, '') <> 'X' "
-            "  WHERE c.office = 'H' AND c.election_yr = :yr "
-            "  GROUP BY c.office_state, c.district, c.cand_id, c.name, c.party "
-            "  ORDER BY c.office_state, c.district, itemized DESC"
-            ") leaders "
-            f"ORDER BY itemized {direction}, office_state, district LIMIT :lim"
-        ), {"yr": election_yr, "lim": limit}).all()
+        rows = conn.execute(text(sql), {"yr": election_yr, "lim": limit}).all()
     return [RankedDistrict(state=r[0], district=r[1], cand_id=r[2], name=r[3],
                            party=r[4], value=Decimal(r[5])) for r in rows]
 
@@ -446,6 +469,50 @@ def industry_breakdown(engine: Engine, cand_id: str, *,
     out = [IndustryTotal(industry=k, amount=v[0], count=v[1]) for k, v in agg.items()]
     out.sort(key=lambda x: x.amount, reverse=True)
     return out
+
+
+def industry_buckets() -> list[str]:
+    # The industry names top_by_industry can rank on (from the classifier rules).
+    return [name for name, _ in _INDUSTRY_RULES]
+
+
+def _match_industry(industry: str) -> tuple[str, tuple[str, ...]] | None:
+    q = (industry or "").strip().lower()
+    if not q:
+        return None
+    for name, keywords in _INDUSTRY_RULES:
+        if q == name.lower() or q in name.lower() or name.lower().startswith(q):
+            return name, keywords
+    return None
+
+
+def top_candidates_by_industry(engine: Engine, industry: str, *, limit: int = 10,
+                               election_yr: int = 2024) -> tuple[str | None, list[RankedCandidate]]:
+    # Nationwide: the House candidates whose itemized donors' employers fall in a
+    # given industry bucket give the most. Industry money is inherently itemized
+    # (only itemized receipts carry an employer), so this reads itemized rows.
+    match = _match_industry(industry)
+    if match is None:
+        return None, []
+    name, keywords = match
+    clauses = " OR ".join(
+        f"UPPER(COALESCE(ct.employer, '')) LIKE :k{i}" for i in range(len(keywords)))
+    params: dict = {f"k{i}": f"%{kw}%" for i, kw in enumerate(keywords)}
+    params.update({"yr": election_yr, "lim": limit})
+    with engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT c.cand_id, c.name, c.office_state, c.district, c.party, "
+            "  SUM(ct.amount) AS amt FROM contributions ct "
+            "JOIN candidate_committee cc ON cc.cmte_id = ct.cmte_id "
+            "JOIN candidates c ON c.cand_id = cc.cand_id "
+            "  AND c.election_yr = cc.election_yr "
+            "WHERE c.office = 'H' AND c.election_yr = :yr "
+            "  AND COALESCE(ct.memo_cd, '') <> 'X' AND (" + clauses + ") "
+            "GROUP BY c.cand_id, c.name, c.office_state, c.district, c.party "
+            "ORDER BY amt DESC LIMIT :lim"
+        ), params).all()
+    return name, [RankedCandidate(cand_id=r[0], name=r[1], state=r[2], district=r[3],
+                                  party=r[4], value=Decimal(r[5])) for r in rows]
 
 
 def candidate_finance(engine: Engine, cand_id: str, *,

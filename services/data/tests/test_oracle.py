@@ -8,7 +8,7 @@ from otm_data.oracle import (
     candidate_finance, contributions_by_state, district_candidates,
     classify_industry, industry_breakdown, top_employers, state_field,
     search_candidates, funding_timeline, donor_size_breakdown, top_candidates,
-    rank_districts,
+    rank_districts, candidate_by_id, top_candidates_by_industry, industry_buckets,
 )
 from otm_data.load import load_candidate_totals
 
@@ -34,10 +34,10 @@ def test_state_field(db_engine):
     assert az06 and az06[0].cand_id == "H2AZ06099"
 
 
-def test_rank_districts_orders_and_dedupes(db_engine):
+def test_rank_districts_by_itemized_orders_and_dedupes(db_engine):
     _seed(db_engine)
-    desc = rank_districts(db_engine, order="desc", limit=25)
-    asc = rank_districts(db_engine, order="asc", limit=25)
+    desc = rank_districts(db_engine, metric="itemized", order="desc", limit=25)
+    asc = rank_districts(db_engine, metric="itemized", order="asc", limit=25)
     assert desc and asc
     # One row per district (the leading candidate), no duplicate seats.
     keys = [(d.state, d.district) for d in desc]
@@ -50,9 +50,51 @@ def test_rank_districts_orders_and_dedupes(db_engine):
     assert set(keys) == {(d.state, d.district) for d in asc}
 
 
+def test_rank_districts_by_receipts_uses_official_totals(db_engine):
+    _seed(db_engine)
+    # Give AZ-06's leader real official receipts; other districts have none on
+    # file. Ranking by the default 'receipts' metric must surface that seat.
+    load_candidate_totals(db_engine, ["H2AZ06099|2024|5000.00|4000.00"])
+    desc = rank_districts(db_engine, metric="receipts", order="desc", limit=25)
+    assert (desc[0].state, desc[0].district) == ("AZ", "06")
+    assert desc[0].value == Decimal("5000.00")
+    # Ascending puts the funded seat at the bottom of the list.
+    asc = rank_districts(db_engine, metric="receipts", order="asc", limit=25)
+    assert (asc[-1].state, asc[-1].district) == ("AZ", "06")
+
+
 def test_rank_districts_respects_limit(db_engine):
     _seed(db_engine)
-    assert len(rank_districts(db_engine, order="asc", limit=1)) == 1
+    assert len(rank_districts(db_engine, metric="itemized", order="asc", limit=1)) == 1
+
+
+def test_candidate_by_id(db_engine):
+    _seed(db_engine)
+    ref = candidate_by_id(db_engine, "H2AZ06099")
+    assert ref and ref.office_state == "AZ" and ref.district == "06"
+    assert candidate_by_id(db_engine, "H0XX00000") is None
+
+
+def test_industry_buckets_lists_names():
+    buckets = industry_buckets()
+    assert "Technology" in buckets and "Energy" in buckets
+
+
+def test_top_candidates_by_industry_unknown_returns_none(db_engine):
+    name, rows = top_candidates_by_industry(db_engine, "Cryptocurrency")
+    assert name is None and rows == []
+
+
+def test_top_candidates_by_industry_surfaces_a_backed_candidate(db_engine):
+    _seed(db_engine)
+    # Add a clearly-tech contribution to AZ-06's leading candidate's committee.
+    load_contributions(db_engine, [
+        "C00770886|N|Q2|P|2|15|IND|TECH, JANE|SEATTLE|WA|98101|GOOGLE LLC|ENGINEER"
+        "|06152024|2500.00||T7|1|||SUBTECH",
+    ], cmte_ids=linked_committee_ids(db_engine))
+    name, rows = top_candidates_by_industry(db_engine, "Technology", limit=10)
+    assert name == "Technology"
+    assert any(r.cand_id == "H2AZ06099" for r in rows)
 
 
 def test_classify_industry():

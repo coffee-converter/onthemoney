@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from sqlalchemy import Engine, text
 
-SCHEMA_VERSION = 1  # bump to invalidate all cached traces on a shape change
+SCHEMA_VERSION = 2  # bump to invalidate all cached traces on a shape change
 
 
 @dataclass(frozen=True)

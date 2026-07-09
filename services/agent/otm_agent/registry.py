@@ -8,7 +8,8 @@ from otm_agent.config import get_settings
 from otm_data.oracle import (
     contributions_by_state, industry_breakdown, top_employers, state_field,
     state_totals, search_candidates, funding_timeline, donor_size_breakdown,
-    top_candidates, district_candidates, rank_districts,
+    top_candidates, district_candidates, rank_districts, candidate_by_id,
+    candidate_finance, top_candidates_by_industry, industry_buckets,
 )
 
 
@@ -95,13 +96,58 @@ def _top_candidates(engine: Engine, args: dict) -> dict:
 
 
 def _rank_districts(engine: Engine, args: dict) -> dict:
+    metric = args.get("metric") or "receipts"
+    if metric not in ("receipts", "itemized", "individual"):
+        metric = "receipts"
     order = "desc" if str(args.get("order", "asc")).lower() == "desc" else "asc"
     limit = min(int(args.get("limit") or 10), 25)
-    rows = rank_districts(engine, order=order, limit=limit)
-    return {"order": order, "insufficient": len(rows) == 0, "districts": [
+    rows = rank_districts(engine, metric=metric, order=order, limit=limit)
+    return {"metric": metric, "order": order, "insufficient": len(rows) == 0,
+            "districts": [
         {"district": f"{r.state}-{r.district}", "state": r.state,
          "district_num": r.district, "cand_id": r.cand_id, "name": r.name,
-         "party": r.party, "itemized": float(r.value)} for r in rows]}
+         "party": r.party, "value": float(r.value)} for r in rows]}
+
+
+def _compare_candidates(engine: Engine, args: dict) -> dict:
+    ids = [str(i) for i in (args.get("cand_ids") or [])][:4]
+    out = []
+    for cid in ids:
+        ref = candidate_by_id(engine, cid)
+        if ref is None:
+            out.append({"cand_id": cid, "insufficient": True})
+            continue
+        fin = candidate_finance(engine, cid)
+        size = donor_size_breakdown(engine, cid)
+        by_state = contributions_by_state(engine, cid)
+        home = cid[2:4].upper()
+        itemized = sum(float(r.amount) for r in by_state)
+        out_state = sum(float(r.amount) for r in by_state if (r.state or "").upper() != home)
+        inds = industry_breakdown(engine, cid)
+        out.append({
+            "cand_id": cid, "name": ref.name, "party": ref.party,
+            "district": f"{ref.office_state}-{ref.district}",
+            "receipts": float(fin.receipts) if fin else None,
+            "individual_total": float(fin.individual_total) if fin else None,
+            "itemized": round(itemized),
+            "small_dollar_share_pct": size.get("small_dollar_share_pct"),
+            "out_of_state_pct": round(out_state / itemized * 100, 1) if itemized else 0.0,
+            "top_industry": inds[0].industry if inds else None,
+        })
+    return {"insufficient": len(out) == 0, "candidates": out}
+
+
+def _top_by_industry(engine: Engine, args: dict) -> dict:
+    limit = min(int(args.get("limit") or 10), 25)
+    name, rows = top_candidates_by_industry(engine, args.get("industry", ""), limit=limit)
+    if name is None:
+        return {"insufficient": True, "note": "unknown industry",
+                "valid_industries": industry_buckets()}
+    return {"industry": name, "insufficient": len(rows) == 0,
+            "note": "itemized individual contributions only",
+            "candidates": [{"cand_id": r.cand_id, "name": r.name,
+                            "district": f"{r.state}-{r.district}", "party": r.party,
+                            "value": float(r.value)} for r in rows]}
 
 
 def _race_summary(engine: Engine, args: dict) -> dict:
@@ -298,6 +344,30 @@ def _map_candidates(engine: Engine, args: dict) -> dict:
     return _render_map(engine, {"points": pts, "title": "Best-funded House candidates"})
 
 
+def _map_districts(engine: Engine, args: dict) -> dict:
+    # Map companion to rank_districts: shade the N least- or most-funded district
+    # polygons server-side, so the agent never hand-transcribes them into
+    # render_map. Regions stay visible even when the values are small (asc).
+    metric = args.get("metric") or "receipts"
+    if metric not in ("receipts", "itemized", "individual"):
+        metric = "receipts"
+    order = "desc" if str(args.get("order", "desc")).lower() == "desc" else "asc"
+    limit = min(int(args.get("limit") or 10), 40)
+    rows = rank_districts(engine, metric=metric, order=order, limit=limit)
+    regions = []
+    for r in rows:
+        if district_centroid(r.state, r.district) is None:
+            continue
+        pl = _PARTY_LETTER.get((r.party or "").upper())
+        name = r.name.split(",")[0].title() if "," in r.name else r.name
+        regions.append({"place": f"{r.state}-{r.district}", "value": float(r.value),
+                        "label": _short_money(float(r.value)),
+                        "tooltip": [f"{r.state}-{r.district}", name, pl or r.party,
+                                    f"${float(r.value):,.0f}"]})
+    title = ("Least-funded" if order == "asc" else "Best-funded") + " House districts"
+    return _render_map(engine, {"regions": regions, "title": title})
+
+
 def _emit_scene(engine: Engine, args: dict) -> dict:
     state, district = args["state"], args["district"]
     res = resolve_entity(engine, state=state, district=district)
@@ -421,22 +491,64 @@ _SPECS = [
     ToolSpec(
         name="rank_districts",
         description="Rank U.S. House districts nationwide by their leading "
-                    "candidate's itemized individual receipts: order 'asc' for "
-                    "least-funded first, 'desc' for best-funded first. Returns one row "
-                    "per district, each with its state, district number, leading "
-                    "candidate, party, and itemized total. Use for 'which district has "
-                    "the least/most funding' or 'lowest/highest-funded districts'. For "
-                    "a single-district answer, then call highlight_district on that "
-                    "seat so the map shows the one district, not the whole country.",
+                    "candidate's funding: order 'asc' for least-funded first, 'desc' "
+                    "for best-funded first. Metric defaults to 'receipts' (official "
+                    "total raised, complete for every seat - use this for "
+                    "least/most-funded); 'itemized' and 'individual' are also allowed. "
+                    "Returns one row per district with its state, district number, "
+                    "leading candidate, party, and value. Use for 'which district has "
+                    "the least/most funding' or 'lowest/highest-funded districts' - do "
+                    "not eyeball it off map_nation. For a single-district answer, then "
+                    "call highlight_district on that seat so the map shows the one "
+                    "district, not the whole country.",
         input_schema={
             "type": "object",
             "properties": {
+                "metric": {"type": "string", "enum": ["receipts", "itemized", "individual"],
+                           "description": "Funding metric (default 'receipts', the official total raised)"},
                 "order": {"type": "string", "enum": ["asc", "desc"],
                           "description": "asc = least-funded first, desc = most-funded first"},
                 "limit": {"type": "integer", "description": "How many districts (max 25)"},
             },
         },
         handler=_rank_districts,
+    ),
+    ToolSpec(
+        name="compare_candidates",
+        description="Compare two to four candidates side by side on aligned metrics: "
+                    "official receipts, money from individuals, itemized sum, "
+                    "small-dollar share (%), out-of-state share (%), and top funding "
+                    "industry. Pass a list of FEC candidate ids (cand_ids). Resolve "
+                    "names to ids with find_candidate first. Use for 'compare X and Y' "
+                    "or 'is A or B more grassroots-funded'.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "cand_ids": {"type": "array", "items": {"type": "string"},
+                             "description": "Two to four FEC candidate ids"},
+            },
+            "required": ["cand_ids"],
+        },
+        handler=_compare_candidates,
+    ),
+    ToolSpec(
+        name="top_by_industry",
+        description="Nationwide: the House candidates who raise the most itemized money "
+                    "from a given industry. industry is one of: Technology, Finance, "
+                    "Law, Healthcare, Energy, Real Estate, Education, "
+                    "Government / Public, Retired / Not employed. Use for 'who gets the "
+                    "most tech/oil/pharma money'. Itemized contributions only (that is "
+                    "where donor employers are recorded).",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "industry": {"type": "string",
+                             "description": "Industry bucket, e.g. Technology or Energy"},
+                "limit": {"type": "integer", "description": "How many candidates (max 25)"},
+            },
+            "required": ["industry"],
+        },
+        handler=_top_by_industry,
     ),
     ToolSpec(
         name="race_summary",
@@ -575,6 +687,27 @@ _SPECS = [
             },
         },
         handler=_map_candidates,
+    ),
+    ToolSpec(
+        name="map_districts",
+        description="Map the least- or most-funded House districts nationwide, built "
+                    "server-side (use this, never hand-build render_map, for 'map the "
+                    "lowest/highest-funded districts'). It shades those district "
+                    "polygons and labels each with its total. Params: order ('asc' for "
+                    "least-funded, 'desc' for most-funded), metric ('receipts' default, "
+                    "'itemized', 'individual'), limit (max 40). Pairs with "
+                    "rank_districts; for a single district use highlight_district.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "order": {"type": "string", "enum": ["asc", "desc"],
+                          "description": "asc = least-funded, desc = most-funded"},
+                "metric": {"type": "string", "enum": ["receipts", "itemized", "individual"],
+                           "description": "Funding metric (default 'receipts')"},
+                "limit": {"type": "integer", "description": "How many districts (max 40)"},
+            },
+        },
+        handler=_map_districts,
     ),
     ToolSpec(
         name="emit_scene",
