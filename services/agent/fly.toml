@@ -10,7 +10,7 @@ primary_region = "iad"
 
 [env]
   OTM_DEMO_ENABLED = "1"
-  OTM_DEMO_DAILY_USD = "20.00"
+  OTM_DEMO_DAILY_USD = "5.00"
 
 [[vm]]
   size = "shared-cpu-1x"
