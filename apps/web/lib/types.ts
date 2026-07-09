@@ -39,6 +39,7 @@ export interface Scene {
   highlight?: { state: string; district: string };
   flows: Flow[];
   overlays?: Overlay[]; // agent-composed custom layers (render_map)
+  title?: string; // server-set caption for composed maps (map_districts, etc.)
   loading?: boolean; // district identified, funding still being fetched
 }
 

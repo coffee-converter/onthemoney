@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Chat } from '../components/Chat';
 import { Roster } from '../components/Roster';
+import { RankPanel } from '../components/RankPanel';
 import { fetchRoster, fetchCandidateScene } from '../lib/api';
 import type { Scene, Candidate, RosterCandidate } from '../lib/types';
 
@@ -38,6 +39,34 @@ export default function Home() {
     };
   }, [districtKey]);
 
+  // When a seat is highlighted but no candidate was resolved (e.g. a "least/most
+  // funded district" answer that only ran rank_districts + highlight_district),
+  // auto-fill the detail card with the district's leading candidate's funding,
+  // so the pane shows the relevant figures rather than sitting empty.
+  useEffect(() => {
+    if (!districtKey || !roster.length) return;
+    if (candidate && candidate.district === districtKey) return;
+    const [state, district] = districtKey.split('-');
+    const leader = roster[0];
+    let cancelled = false;
+    fetchCandidateScene(leader.cand_id, state, district)
+      .then((res) => {
+        if (cancelled) return;
+        setCandidate({
+          cand_id: leader.cand_id,
+          name: leader.name,
+          party: leader.party,
+          district: districtKey,
+          receipts: res.receipts,
+          individualTotal: res.individual_total,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [districtKey, roster, candidate]);
+
   async function pickCandidate(c: RosterCandidate) {
     if (!scene?.highlight) return;
     const { state, district } = scene.highlight;
@@ -67,6 +96,7 @@ export default function Home() {
           district={districtKey}
           onPick={pickCandidate}
         />
+        <RankPanel scene={scene} />
         {scene && (
           <div className="map-legend">
             <span>
