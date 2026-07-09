@@ -39,15 +39,15 @@ def test_rank_districts_by_itemized_orders_and_dedupes(db_engine):
     desc = rank_districts(db_engine, metric="itemized", order="desc", limit=25)
     asc = rank_districts(db_engine, metric="itemized", order="asc", limit=25)
     assert desc and asc
-    # One row per district (the leading candidate), no duplicate seats.
+    # One row per district (the district total), no duplicate seats.
     keys = [(d.state, d.district) for d in desc]
     assert len(keys) == len(set(keys))
     # Ranked correctly in each direction.
     assert [d.value for d in desc] == sorted((d.value for d in desc), reverse=True)
     assert [d.value for d in asc] == sorted(d.value for d in asc)
-    # Least-funded <= best-funded, and both surface the same district set.
-    assert asc[0].value <= desc[0].value
-    assert set(keys) == {(d.state, d.district) for d in asc}
+    # Ascending ("least funded") drops zero-total seats and is a subset of all.
+    assert all(d.value > 0 for d in asc)
+    assert {(d.state, d.district) for d in asc} <= set(keys)
 
 
 def test_rank_districts_by_receipts_uses_official_totals(db_engine):

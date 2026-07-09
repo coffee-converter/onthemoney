@@ -345,35 +345,51 @@ class RankedDistrict:
 
 def rank_districts(engine: Engine, *, metric: str = "receipts", order: str = "asc",
                    limit: int = 10, election_yr: int = 2024) -> list[RankedDistrict]:
-    # Rank every House district nationwide by its leading candidate's funding,
-    # ascending (least-funded first) or descending. One row per district, the
-    # leader being the district's highest-funded candidate on the same metric.
+    # Rank every House district nationwide by its TOTAL funding (summed across
+    # all candidates in the seat), ascending (least-funded first) or descending.
+    # Value is the district total; the named candidate is the seat's top raiser.
     #
-    # Default metric is 'receipts' (official FEC total raised): it is complete
-    # for every filer, so it is the honest "how much did this seat raise". The
-    # itemized-contribution table is a bounded slice, so ranking by 'itemized'
-    # can surface coverage gaps (districts with no itemized rows) as false zeros.
+    # Summing the whole field, rather than a single "leading candidate", is what
+    # makes "least-funded district" honest: a $0 minor or withdrawn filer can be
+    # the nominal leader of a seat that actually raised millions, so per-leader
+    # ranking surfaces false zeros. Districts with no reported money at all are
+    # excluded from the ascending ("least") ranking as data gaps, not real seats.
+    #
+    # Default metric is 'receipts' (official FEC total raised), complete for
+    # every filer. 'itemized' sums the itemized-contribution slice instead.
     direction = "ASC" if str(order).lower() == "asc" else "DESC"
     if metric == "itemized":
-        val = "COALESCE(SUM(ct.amount), 0)"
-        joins = ("LEFT JOIN candidate_committee cc "
-                 "  ON cc.cand_id = c.cand_id AND cc.election_yr = c.election_yr "
-                 "LEFT JOIN contributions ct "
-                 "  ON ct.cmte_id = cc.cmte_id AND COALESCE(ct.memo_cd, '') <> 'X' ")
+        cand = (
+            "cand AS (SELECT c.office_state, c.district, c.cand_id, c.name, c.party, "
+            "  COALESCE(SUM(ct.amount), 0) AS v FROM candidates c "
+            "  LEFT JOIN candidate_committee cc "
+            "    ON cc.cand_id = c.cand_id AND cc.election_yr = c.election_yr "
+            "  LEFT JOIN contributions ct "
+            "    ON ct.cmte_id = cc.cmte_id AND COALESCE(ct.memo_cd, '') <> 'X' "
+            "  WHERE c.office = 'H' AND c.election_yr = :yr "
+            "  GROUP BY c.office_state, c.district, c.cand_id, c.name, c.party) ")
     else:  # receipts (default) or individual: official FEC totals
         col = "individual_total" if metric == "individual" else "receipts"
-        val = f"COALESCE(MAX(t.{col}), 0)"
-        joins = "LEFT JOIN candidate_totals t ON t.cand_id = c.cand_id AND t.cycle = :yr "
+        cand = (
+            "cand AS (SELECT c.office_state, c.district, c.cand_id, c.name, c.party, "
+            f"  COALESCE(MAX(t.{col}), 0) AS v FROM candidates c "
+            "  LEFT JOIN candidate_totals t ON t.cand_id = c.cand_id AND t.cycle = :yr "
+            "  WHERE c.office = 'H' AND c.election_yr = :yr "
+            "  GROUP BY c.office_state, c.district, c.cand_id, c.name, c.party) ")
+    # Exclude zero-total seats only when ranking ascending, so "least funded"
+    # means genuinely low rather than absent-from-the-dataset.
+    having = "WHERE d.total > 0 " if direction == "ASC" else ""
     sql = (
-        "SELECT office_state, district, cand_id, name, party, v FROM ("
-        "  SELECT DISTINCT ON (c.office_state, c.district) "
-        f"    c.office_state, c.district, c.cand_id, c.name, c.party, {val} AS v "
-        f"  FROM candidates c {joins}"
-        "  WHERE c.office = 'H' AND c.election_yr = :yr "
-        "  GROUP BY c.office_state, c.district, c.cand_id, c.name, c.party "
-        "  ORDER BY c.office_state, c.district, v DESC"
-        ") leaders "
-        f"ORDER BY v {direction}, office_state, district LIMIT :lim"
+        "WITH " + cand +
+        ", dist AS (SELECT office_state, district, SUM(v) AS total FROM cand "
+        "  GROUP BY office_state, district) "
+        ", leader AS (SELECT DISTINCT ON (office_state, district) "
+        "    office_state, district, cand_id, name, party "
+        "  FROM cand ORDER BY office_state, district, v DESC) "
+        "SELECT d.office_state, d.district, l.cand_id, l.name, l.party, d.total "
+        "FROM dist d JOIN leader l USING (office_state, district) "
+        + having +
+        f"ORDER BY d.total {direction}, d.office_state, d.district LIMIT :lim"
     )
     with engine.connect() as conn:
         rows = conn.execute(text(sql), {"yr": election_yr, "lim": limit}).all()

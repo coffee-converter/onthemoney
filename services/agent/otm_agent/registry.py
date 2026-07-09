@@ -490,17 +490,17 @@ _SPECS = [
     ),
     ToolSpec(
         name="rank_districts",
-        description="Rank U.S. House districts nationwide by their leading "
-                    "candidate's funding: order 'asc' for least-funded first, 'desc' "
-                    "for best-funded first. Metric defaults to 'receipts' (official "
-                    "total raised, complete for every seat - use this for "
-                    "least/most-funded); 'itemized' and 'individual' are also allowed. "
-                    "Returns one row per district with its state, district number, "
-                    "leading candidate, party, and value. Use for 'which district has "
-                    "the least/most funding' or 'lowest/highest-funded districts' - do "
-                    "not eyeball it off map_nation. For a single-district answer, then "
-                    "call highlight_district on that seat so the map shows the one "
-                    "district, not the whole country.",
+        description="Rank U.S. House districts nationwide by their TOTAL funding "
+                    "(summed across all candidates in the seat): order 'asc' for "
+                    "least-funded first, 'desc' for best-funded first. Value is the "
+                    "district total; the named candidate is the seat's top raiser. "
+                    "Metric defaults to 'receipts' (official total raised, complete for "
+                    "every seat - use this for least/most-funded); 'itemized' and "
+                    "'individual' are also allowed. Ascending drops seats with no money "
+                    "on file (data gaps). Use for 'which district has the least/most "
+                    "funding' or 'lowest/highest-funded districts' - do not eyeball it "
+                    "off map_nation. For a single-district answer, then call "
+                    "highlight_district on that seat so the map shows the one district.",
         input_schema={
             "type": "object",
             "properties": {
