@@ -322,6 +322,43 @@ def top_candidates(engine: Engine, *, metric: str = "itemized", limit: int = 10,
 
 
 @dataclass
+class RankedDistrict:
+    state: str
+    district: str
+    cand_id: str
+    name: str
+    party: str
+    value: Decimal
+
+
+def rank_districts(engine: Engine, *, order: str = "asc", limit: int = 10,
+                   election_yr: int = 2024) -> list[RankedDistrict]:
+    # Rank every House district nationwide by its leading candidate's itemized
+    # individual receipts (the same leader resolve_candidate and state_field
+    # pick), ascending (least-funded first) or descending. One row per district.
+    direction = "ASC" if str(order).lower() == "asc" else "DESC"
+    with engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT office_state, district, cand_id, name, party, itemized FROM ("
+            "  SELECT DISTINCT ON (c.office_state, c.district) "
+            "    c.office_state, c.district, c.cand_id, c.name, c.party, "
+            "    COALESCE(SUM(ct.amount), 0) AS itemized "
+            "  FROM candidates c "
+            "  LEFT JOIN candidate_committee cc "
+            "    ON cc.cand_id = c.cand_id AND cc.election_yr = c.election_yr "
+            "  LEFT JOIN contributions ct "
+            "    ON ct.cmte_id = cc.cmte_id AND COALESCE(ct.memo_cd, '') <> 'X' "
+            "  WHERE c.office = 'H' AND c.election_yr = :yr "
+            "  GROUP BY c.office_state, c.district, c.cand_id, c.name, c.party "
+            "  ORDER BY c.office_state, c.district, itemized DESC"
+            ") leaders "
+            f"ORDER BY itemized {direction}, office_state, district LIMIT :lim"
+        ), {"yr": election_yr, "lim": limit}).all()
+    return [RankedDistrict(state=r[0], district=r[1], cand_id=r[2], name=r[3],
+                           party=r[4], value=Decimal(r[5])) for r in rows]
+
+
+@dataclass
 class EmployerTotal:
     employer: str
     amount: Decimal

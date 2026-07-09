@@ -28,6 +28,21 @@ def test_funding_summary_handler(seeded_engine):
     assert payload["donors"][0]["name"] == "DOE, JOHN"
 
 
+def test_rank_districts_handler(seeded_engine):
+    spec = get_spec("rank_districts")
+    payload = spec.handler(seeded_engine, {"order": "asc", "limit": 5})
+    assert payload["order"] == "asc"
+    assert payload["insufficient"] is False
+    rows = payload["districts"]
+    assert rows
+    # Each row carries the pieces needed to then highlight_district that seat.
+    top = rows[0]
+    assert set(top) >= {"district", "state", "district_num", "cand_id", "name",
+                        "party", "itemized"}
+    assert top["district"] == f"{top['state']}-{top['district_num']}"
+    assert [r["itemized"] for r in rows] == sorted(r["itemized"] for r in rows)
+
+
 def test_emit_scene_handler(seeded_engine):
     spec = get_spec("emit_scene")
     payload = spec.handler(seeded_engine, {"state": "AZ", "district": "06"})

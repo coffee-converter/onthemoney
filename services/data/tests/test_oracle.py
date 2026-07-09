@@ -8,6 +8,7 @@ from otm_data.oracle import (
     candidate_finance, contributions_by_state, district_candidates,
     classify_industry, industry_breakdown, top_employers, state_field,
     search_candidates, funding_timeline, donor_size_breakdown, top_candidates,
+    rank_districts,
 )
 from otm_data.load import load_candidate_totals
 
@@ -31,6 +32,27 @@ def test_state_field(db_engine):
     assert field
     az06 = [e for e in field if e.district == "06"]
     assert az06 and az06[0].cand_id == "H2AZ06099"
+
+
+def test_rank_districts_orders_and_dedupes(db_engine):
+    _seed(db_engine)
+    desc = rank_districts(db_engine, order="desc", limit=25)
+    asc = rank_districts(db_engine, order="asc", limit=25)
+    assert desc and asc
+    # One row per district (the leading candidate), no duplicate seats.
+    keys = [(d.state, d.district) for d in desc]
+    assert len(keys) == len(set(keys))
+    # Ranked correctly in each direction.
+    assert [d.value for d in desc] == sorted((d.value for d in desc), reverse=True)
+    assert [d.value for d in asc] == sorted(d.value for d in asc)
+    # Least-funded <= best-funded, and both surface the same district set.
+    assert asc[0].value <= desc[0].value
+    assert set(keys) == {(d.state, d.district) for d in asc}
+
+
+def test_rank_districts_respects_limit(db_engine):
+    _seed(db_engine)
+    assert len(rank_districts(db_engine, order="asc", limit=1)) == 1
 
 
 def test_classify_industry():

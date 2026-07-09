@@ -8,7 +8,7 @@ from otm_agent.config import get_settings
 from otm_data.oracle import (
     contributions_by_state, industry_breakdown, top_employers, state_field,
     state_totals, search_candidates, funding_timeline, donor_size_breakdown,
-    top_candidates, district_candidates,
+    top_candidates, district_candidates, rank_districts,
 )
 
 
@@ -92,6 +92,16 @@ def _top_candidates(engine: Engine, args: dict) -> dict:
             "candidates": [{"cand_id": r.cand_id, "name": r.name,
                             "district": f"{r.state}-{r.district}", "party": r.party,
                             "value": float(r.value)} for r in rows]}
+
+
+def _rank_districts(engine: Engine, args: dict) -> dict:
+    order = "desc" if str(args.get("order", "asc")).lower() == "desc" else "asc"
+    limit = min(int(args.get("limit") or 10), 25)
+    rows = rank_districts(engine, order=order, limit=limit)
+    return {"order": order, "insufficient": len(rows) == 0, "districts": [
+        {"district": f"{r.state}-{r.district}", "state": r.state,
+         "district_num": r.district, "cand_id": r.cand_id, "name": r.name,
+         "party": r.party, "itemized": float(r.value)} for r in rows]}
 
 
 def _race_summary(engine: Engine, args: dict) -> dict:
@@ -407,6 +417,26 @@ _SPECS = [
             },
         },
         handler=_top_candidates,
+    ),
+    ToolSpec(
+        name="rank_districts",
+        description="Rank U.S. House districts nationwide by their leading "
+                    "candidate's itemized individual receipts: order 'asc' for "
+                    "least-funded first, 'desc' for best-funded first. Returns one row "
+                    "per district, each with its state, district number, leading "
+                    "candidate, party, and itemized total. Use for 'which district has "
+                    "the least/most funding' or 'lowest/highest-funded districts'. For "
+                    "a single-district answer, then call highlight_district on that "
+                    "seat so the map shows the one district, not the whole country.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "order": {"type": "string", "enum": ["asc", "desc"],
+                          "description": "asc = least-funded first, desc = most-funded first"},
+                "limit": {"type": "integer", "description": "How many districts (max 25)"},
+            },
+        },
+        handler=_rank_districts,
     ),
     ToolSpec(
         name="race_summary",
