@@ -42,11 +42,15 @@ const FRIENDLY: Record<string, { active: string; done: string }> = {
   funding_timeline: { active: 'Tracing the money over time', done: 'Timeline ready' },
   donor_size_breakdown: { active: 'Splitting small vs large donors', done: 'Donor sizes ready' },
   top_candidates: { active: 'Ranking candidates nationwide', done: 'Nationwide ranking ready' },
+  rank_districts: { active: 'Ranking districts by funding', done: 'District ranking ready' },
+  compare_candidates: { active: 'Comparing the candidates', done: 'Comparison ready' },
+  top_by_industry: { active: 'Ranking money by industry', done: 'Industry ranking ready' },
   race_summary: { active: 'Sizing up the race', done: 'Race summary ready' },
   state_field: { active: 'Gathering the statewide field', done: 'Statewide field ready' },
   map_state: { active: 'Mapping the state', done: 'State map ready' },
   map_nation: { active: 'Mapping the whole country', done: 'National map ready' },
   map_candidates: { active: 'Mapping the top candidates', done: 'Candidate map ready' },
+  map_districts: { active: 'Mapping the districts', done: 'District map ready' },
   render_map: { active: 'Drawing the map', done: 'Map drawn' },
   highlight_district: { active: 'Locating the district', done: 'District located' },
   emit_scene: { active: 'Mapping the money by state', done: 'Map rendered' },
@@ -214,7 +218,7 @@ export function Chat({
       if (
         step.type === 'tool_result' &&
         ['emit_scene', 'render_map', 'map_state', 'map_nation', 'map_candidates',
-          'highlight_district'].includes(step.name ?? '') &&
+          'map_districts', 'highlight_district'].includes(step.name ?? '') &&
         step.payload &&
         !('insufficient' in step.payload) &&
         !('error' in step.payload)

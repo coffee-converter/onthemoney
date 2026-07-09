@@ -93,6 +93,25 @@ def test_grounded_analytical_answer_is_not_insufficient(seeded_engine):
     assert ans["confidence"] == "high"
 
 
+def test_new_analytical_and_map_tools_ground_the_answer(seeded_engine):
+    # rank_districts / map_districts / compare_candidates / top_by_industry must
+    # each count as grounding, or answers that use them read "insufficient".
+    for name, payload in [
+        ("rank_districts", {"metric": "receipts", "order": "desc",
+                            "districts": [{"district": "MD-06", "value": 1.0}]}),
+        ("map_districts", {"camera": {}, "overlays": [{"type": "regions"}], "title": "x"}),
+        ("compare_candidates", {"candidates": [{"cand_id": "H2AZ06099"}]}),
+        ("top_by_industry", {"industry": "Technology", "candidates": [{"cand_id": "x"}]}),
+    ]:
+        trace = [
+            {"type": "tool_use", "name": name, "input": {}},
+            {"type": "tool_result", "name": name, "payload": payload},
+            {"type": "result", "text": "Answer."},
+        ]
+        ans = build_answer_from_trace(seeded_engine, trace, "Answer.")
+        assert ans["confidence"] == "high", name
+
+
 def test_errored_grounded_tool_is_not_treated_as_grounded(seeded_engine):
     # A grounded analytical tool that raised is recovered into an {"error": ...}
     # payload so the request can finish; it must NOT count as grounding, or a

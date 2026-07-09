@@ -39,8 +39,9 @@ def build_answer_from_trace(engine: Engine, trace: list[dict],
     _GROUNDED = {"state_field", "industry_breakdown", "top_employers",
                  "donor_geography", "find_candidate", "funding_timeline",
                  "donor_size_breakdown", "top_candidates", "race_summary",
+                 "rank_districts", "compare_candidates", "top_by_industry",
                  "render_map", "map_state", "map_nation", "map_candidates",
-                 "highlight_district"}
+                 "map_districts", "highlight_district"}
     # A tool that raised is recovered into an {"error": ...} payload upstream so
     # the request can finish; it must NOT count as grounding, or a crashed
     # analytical tool would still yield a confident "high" answer with no data.
